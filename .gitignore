@@ -1,0 +1,8 @@
+history
+outputs
+*.csv
+__pycache__
+xga_output
+raw_images
+.DS_Store
+.ipynb_checkpoints/
