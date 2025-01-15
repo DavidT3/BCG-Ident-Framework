@@ -111,12 +111,30 @@ def update_history(new_entry: Union[dict, List[dict]]) -> dict:
 
 # --------------------------------- USEFUL CLASSES ---------------------------------
 class InteractiveView:
-    def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, figsize: Tuple[float, float] = (14, 7)):
+    def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, figsize: Tuple[float, float] = (14, 7),
+                 im_scale: dict = None):
 
         self._all_im_data = im_data
         self._all_im_wcs = im_wcs
         self._data_names = list(im_data.keys())
         self._primary_data_name = primary_data_name
+
+        if im_scale is not None:
+            self._all_im_scale = {n: im_scale[n] if n in im_scale else None for n in self._all_im_data.keys()}
+        else:
+            self._all_im_scale = {n: None for n in self._data_names}
+
+        self._norms = {}
+        for data_name in self._data_names:
+            if self._all_im_scale[data_name] is not None:
+                cur_norm = ImageNormalize(self._all_im_data[data_name], self._all_im_scale[data_name]['interval'],
+                                          stretch=self._all_im_scale[data_name]['stretch'])
+            else:
+                cur_norm = None
+            self._norms[data_name] = cur_norm
+
+        self._cmaps = {n: self._all_im_scale[n]['cmap'] if self._all_im_scale[n] is not None else None
+                       for n in self._data_names}
         # self._regions = deepcopy(phot_prod.regions)
 
         # This is for storing references to artists with an ObsID key, so we know which artist belongs
@@ -497,19 +515,21 @@ class InteractiveView:
         are updated and edited by other parts of the class. The plot mask is always applied to data, but when
         not turned on by the relevant button it will be all ones so will make no difference.
         """
-        # This removes the existing image data without removing the region artists
-        # if self._im_plot is not None:
-        #     self._im_plot.remove()
-        self._im_axes[self._primary_data_name].imshow(self._all_im_data[self._primary_data_name], origin="lower")
+        cur_norm = self._norms[self._primary_data_name]
+        self._im_axes[self._primary_data_name].imshow(self._all_im_data[self._primary_data_name], origin="lower",
+                                                      norm=cur_norm, cmap=self._cmaps[self._primary_data_name])
         # norm=self._norm
 
         for data_name, data in self._all_im_data.items():
             if data_name == self._primary_data_name:
                 continue
+            cur_norm = self._norms[data_name]
+
             # This does the actual plotting bit, saving the output in an attribute, so it can be
             #  removed when re-plotting
             # norm=self._norm
-            self._im_plot = self._im_axes[data_name].imshow(data, origin="lower")
+            self._im_plot = self._im_axes[data_name].imshow(data, origin="lower", norm=cur_norm,
+                                                            cmap=self._cmaps[data_name])
 
     def _renorm(self) -> ImageNormalize:
         """
@@ -520,8 +540,7 @@ class InteractiveView:
         :return: The normalisation object.
         :rtype: ImageNormalize
         """
-        # We calculate the normalisation using masked data, but mask will be all ones if that
-        #  feature is not currently turned on
+
         norm = ImageNormalize(data=self._plot_data*self._plot_mask, interval=self._interval,
                               stretch=self._stretch)
 
