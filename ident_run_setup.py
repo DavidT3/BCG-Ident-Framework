@@ -960,7 +960,7 @@ class InteractiveView:
         # Checks whether the click was 'in axis' - so whether it was actually on the image being displayed
         #  If it wasn't then we don't care about it
         if (event.inaxes == self._im_axes[self._primary_data_name] and
-                self._fig.canvas.toolbar.get_state()['_current_action'] != 'zoom'):
+                self._fig.canvas.toolbar.get_state()['_current_action'] == ''):
             # This saves the position that the user clicked as the 'last click', as the user may now which
             #  to insert a new region there
             self._last_click = (event.xdata, event.ydata)
