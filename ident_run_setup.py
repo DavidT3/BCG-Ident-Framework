@@ -1,4 +1,5 @@
 import matplotlib
+from IPython.core.pylabtools import figsize
 from astropy.cosmology import LambdaCDM
 from astropy.units import Quantity, UnitConversionError
 import pandas as pd
@@ -113,7 +114,7 @@ def update_history(new_entry: Union[dict, List[dict]]) -> dict:
 
 # --------------------------------- USEFUL CLASSES ---------------------------------
 class InteractiveView:
-    def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, figsize: Tuple[float, float] = (14, 7),
+    def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, figsize = (10, 4),
                  im_scale: dict = None):
 
         self._all_im_data = im_data
@@ -160,24 +161,61 @@ class InteractiveView:
         # # In the same vein I setup a lookup dictionary for artist to region
         # self._artist_region = {}
 
-        # Setting up the figure within which all the axes (data, buttons, etc.) are placed
-        in_fig = plt.figure(figsize=figsize)
-
-        # A bodge-factor I was going to allow for a spacing in between the two ratemaps
-        plt_buff = 1
-
         # Getting a total length (in pixels) of the two ratemaps - this was in order to try and figure out good
         #  coordinates for the axes to be added to the figure. It all got a bit hand wavey though, and I just adjusted
         #  things further down until I ended up with a nice looking figure.
-        tot_x = sum([im_d.shape[0] for im_d in self._all_im_data.values()]) + plt_buff*len(self._data_names)
+        # tot_x = sum([im_d.shape[1] for im_d in self._all_im_data.values()]) + plt_buff * len(self._data_names)
 
-        self._im_axes = {}
-        bodge_x = -0.01*tot_x
-        iter_x_off = 0
-        for im_d_name, im_d in self._all_im_data.items():
-            cur_ax = in_fig.add_axes((iter_x_off / tot_x, 0, im_d.shape[1] / tot_x, 1))
-            self._im_axes[im_d_name] = cur_ax
-            iter_x_off += im_d.shape[0] + plt_buff - bodge_x
+        # pix_height = [im_dat.shape[0] for im_dat in self._all_im_data.values()]
+        #
+        # ind_max_height = np.argmax(pix_height)
+        # name_max_height = self._data_names[ind_max_height]
+        # val_max_height = pix_height[ind_max_height]
+        #
+        # y_conv = {n: val_max_height / pix_height[n_ind] for n_ind, n in enumerate(self._data_names)}
+        # ax_fracs = {n: y_conv[n] / sum(list(y_conv.values())) for n in self._data_names}
+
+        # width = height*sum(list(y_conv.values()))
+        # width = height*3
+
+        # height = width / sum(list(y_conv.values()))
+        #
+        # print((width, height))
+        #
+        # if figsize is not None:
+        #     height = figsize[1]
+        #     width = figsize[0]
+
+        # Setting up the figure within which all the axes (data, buttons, etc.) are placed
+        # in_fig = plt.figure(figsize=(width, height))
+
+        # A bodge-factor I was going to allow for a spacing in between the two ratemaps
+        # plt_buff = 1
+        plt_buff = 0
+
+        # self._im_axes = {}
+        # bodge_x = -0.01*tot_x
+        # bodge_x = 0
+        # iter_x_off = 0
+        # for im_d_name, im_d in self._all_im_data.items():
+        #     cur_ax = in_fig.add_axes((iter_x_off / tot_x, 0, (iter_x_off + im_d.shape[1]) / tot_x, 1))
+        #     self._im_axes[im_d_name] = cur_ax
+        #     iter_x_off += im_d.shape[1] + plt_buff - bodge_x
+
+        # for data_name_ind, data_name in enumerate(self._data_names):
+        #     # start_x = sum(list(ax_fracs.values())[:data_name_ind])
+        #     # stop_x = start_x + ax_fracs[data_name]
+        #     # cur_ax = in_fig.add_axes((start_x, 0, stop_x, 1))
+        #     # self._im_axes[data_name] = cur_ax
+        #     test_frac = (1/len(self._all_im_data))
+        #     start_x = data_name_ind * test_frac
+        #     stop_x = start_x + test_frac
+        #     cur_ax = in_fig.add_axes((start_x, 0, stop_x, 1))
+        #     self._im_axes[data_name] = cur_ax
+
+        in_fig, all_axes = plt.subplots(1, ncols=len(self._data_names), sharex=False, sharey=False,
+                                        figsize=figsize)
+        self._im_axes = {n: all_axes[n_ind] for n_ind, n in enumerate(self._data_names)}
 
         # Storing the figure in an attribute, as well as the image axis (i.e. the axis on which the data
         #  are displayed) in another attribute, for convenience.
@@ -188,7 +226,18 @@ class InteractiveView:
             im_ax.tick_params(axis='both', direction='in', which='both', top=False, right=False)
             im_ax.xaxis.set_ticklabels([])
             im_ax.yaxis.set_ticklabels([])
+            # im_ax.margins(0)
             self._ax_locs[data_name] = im_ax.get_position()
+
+        self._im_axes[self._primary_data_name].annotate(r'COORD = [N/A, N/A] $^{\circ}$', [0.05, 1.02],
+                                                        xycoords='axes fraction',
+                                                        fontsize=11, color="black", fontweight = "bold",
+                                                        annotation_clip=False)
+        self._fig.tight_layout(w_pad=0.4)
+
+        # Removes the save figure button from the toolbar
+        new_tt = [t_item for t_item in self._fig.canvas.manager.toolbar.toolitems if t_item[0] != 'Download']
+        self._fig.canvas.manager.toolbar.toolitems = new_tt
 
         # Setting up some visual stuff that is used in multiple places throughout the class
         # First the colours of buttons in an active and inactive state (the region toggles)
@@ -589,7 +638,9 @@ class InteractiveView:
         ra_dec_ch = np.array(self._all_im_wcs[self._primary_data_name].all_pix2world(*self._last_click, 0))
         self._last_radec = ra_dec_ch
 
-        prim_ax.annotate(str(ra_dec_ch), [50., 50.], fontsize=17, color="white")
+        pos_str = "[" + str(ra_dec_ch[0].round(4)) + ', ' + str(ra_dec_ch[1].round(4)) + "]" + r" $^{\circ}$"
+        prim_ax.annotate("COORD = " + pos_str, [0.05, 1.02], xycoords='axes fraction', fontsize=11, color="black",
+                         fontweight="bold", annotation_clip=False)
 
         prim_ax.axvline(self._last_click[0], color="white", linewidth=0.8)
         prim_ax.axhline(self._last_click[1], color="white", linewidth=0.8)
