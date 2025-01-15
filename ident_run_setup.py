@@ -13,6 +13,8 @@ import json
 from copy import deepcopy
 
 from matplotlib import pyplot as plt
+from matplotlib.patches import Rectangle, Polygon
+
 plt.rcParams['keymap.save'] = ''
 plt.rcParams['keymap.quit'] = ''
 stretch_dict = {'LOG': LogStretch(), 'SINH': SinhStretch(), 'ASINH': AsinhStretch(), 'SQRT': SqrtStretch(),
@@ -141,12 +143,12 @@ class InteractiveView:
         for n in self._data_names:
             cur_data = self._all_im_data[n]
             cur_wcs = self._all_im_wcs[n]
-            y_max, x_max = cur_data.shape
+            y_max, x_max = cur_data.shape[:2]
             bottom_left = cur_wcs.all_pix2world(0, 0, 0)
             bottom_right = cur_wcs.all_pix2world(x_max, 0, 0)
             top_left = cur_wcs.all_pix2world(0, y_max, 0)
             top_right = cur_wcs.all_pix2world(x_max, y_max, 0)
-            self._im_bounds[n] = (bottom_left, bottom_right, top_left, top_right)
+            self._im_bounds[n] = (bottom_left, bottom_right, top_right, top_left)
 
         # self._regions = deepcopy(phot_prod.regions)
 
@@ -543,6 +545,18 @@ class InteractiveView:
             # norm=self._norm
             self._im_plot = self._im_axes[data_name].imshow(data, origin="lower", norm=cur_norm,
                                                             cmap=self._cmaps[data_name])
+
+        for data_name, cur_ax in self._im_axes.items():
+            cur_wcs = self._all_im_wcs[data_name]
+
+            for bnd_name, bounds in self._im_bounds.items():
+                if data_name == bnd_name:
+                    continue
+
+                cur_pix_bnds = cur_wcs.all_world2pix(bounds, 0)
+
+                cur_cov = Polygon(cur_pix_bnds, facecolor='None', edgecolor='red', alpha=0.7)
+                cur_ax.add_patch(cur_cov)
 
     def _renorm(self) -> ImageNormalize:
         """
