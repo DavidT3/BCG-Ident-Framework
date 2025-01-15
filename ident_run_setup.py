@@ -135,6 +135,19 @@ class InteractiveView:
 
         self._cmaps = {n: self._all_im_scale[n]['cmap'] if self._all_im_scale[n] is not None else None
                        for n in self._data_names}
+
+        self._im_bounds = {}
+        # QUICK CALCULATION OF IMAGE DATA RA-DEC LIMITS
+        for n in self._data_names:
+            cur_data = self._all_im_data[n]
+            cur_wcs = self._all_im_wcs[n]
+            y_max, x_max = cur_data.shape
+            bottom_left = cur_wcs.all_pix2world(0, 0, 0)
+            bottom_right = cur_wcs.all_pix2world(x_max, 0, 0)
+            top_left = cur_wcs.all_pix2world(0, y_max, 0)
+            top_right = cur_wcs.all_pix2world(x_max, y_max, 0)
+            self._im_bounds[n] = (bottom_left, bottom_right, top_left, top_right)
+
         # self._regions = deepcopy(phot_prod.regions)
 
         # This is for storing references to artists with an ObsID key, so we know which artist belongs
