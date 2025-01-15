@@ -1,3 +1,4 @@
+import matplotlib
 from astropy.cosmology import LambdaCDM
 from astropy.units import Quantity, UnitConversionError
 import pandas as pd
@@ -110,9 +111,10 @@ def update_history(new_entry: Union[dict, List[dict]]) -> dict:
 
 # --------------------------------- USEFUL CLASSES ---------------------------------
 class InteractiveView:
-    def __init__(self, im_data: dict, primary_data_name: str, figsize: Tuple[float, float] = (14, 7)):
+    def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, figsize: Tuple[float, float] = (14, 7)):
 
         self._all_im_data = im_data
+        self._all_im_wcs = im_wcs
         self._data_names = list(im_data.keys())
         self._primary_data_name = primary_data_name
         # self._regions = deepcopy(phot_prod.regions)
@@ -246,6 +248,7 @@ class InteractiveView:
         # The last coordinate ON THE IMAGE that was clicked is stored here. Initial value is set to the centre
         self._last_click = (self._all_im_data[self._primary_data_name].shape[0] / 2,
                             self._all_im_data[self._primary_data_name].shape[1] / 2)
+        self._last_radec = self._all_im_wcs[self._primary_data_name].allpix2world(*self._last_click, 0)
 
         # This describes whether the artist stored in _cur_pick (if there is one) is right now being clicked
         #  and held - this is used for enabling clicking and dragging so the method knows when to stop.
@@ -273,6 +276,9 @@ class InteractiveView:
         self._im_plot = None
         # Adds the actual image to the axis.
         self._replot_data()
+
+        # self._im_axes[self._primary_data_name].axhline(400, color='white')
+        # self._im_axes[self._primary_data_name].axvline(400, color='white')
 
         # This bit is where all the stretch buttons are set up, as well as the slider. All methods should
         #  be able to use re-stretching so that's why this is all in the init
@@ -520,6 +526,36 @@ class InteractiveView:
                               stretch=self._stretch)
 
         return norm
+
+    def _draw_crosshair(self):
+
+        for im_ax in self._im_axes.values():
+            for art in list(im_ax.lines):
+                art.remove()
+
+            for child in im_ax.get_children():
+                if isinstance(child, matplotlib.text.Annotation):
+                    child.remove()
+
+        prim_ax = self._im_axes[self._primary_data_name]
+
+        # TODO FINALISE THIS TEMPORARY BIT
+        ra_dec_ch = np.array(self._all_im_wcs[self._primary_data_name].all_pix2world(*self._last_click, 0))
+        self._last_radec = ra_dec_ch
+
+        prim_ax.annotate(str(ra_dec_ch), [50., 50.], fontsize=17, color="white")
+
+        prim_ax.axvline(self._last_click[0], color="white", linewidth=0.8)
+        prim_ax.axhline(self._last_click[1], color="white", linewidth=0.8)
+
+        for data_name, im_ax in self._im_axes.items():
+            if data_name == self._primary_data_name:
+                continue
+
+            rel_wcs = self._all_im_wcs[data_name]
+            rel_xy = np.array(rel_wcs.all_world2pix(*ra_dec_ch, 0))
+            im_ax.axvline(rel_xy[0], color="white", linewidth=0.8)
+            im_ax.axhline(rel_xy[1], color="white", linewidth=0.8)
 
     def _draw_regions(self):
         """
@@ -909,10 +945,7 @@ class InteractiveView:
             #  to insert a new region there
             self._last_click = (event.xdata, event.ydata)
 
-            prim_ax = self._im_axes[self._primary_data_name]
-            prim_ax.axvline(event.xdata, color="white", linewidth=2)
-            prim_ax.axhline(event.ydata, color="white", linewidth=2)
-            print(self._last_click)
+            self._draw_crosshair()
 
     def _on_region_pick(self, event):
         """
