@@ -14,7 +14,7 @@ import json
 from copy import deepcopy
 
 from matplotlib import pyplot as plt
-from matplotlib.patches import Rectangle, Polygon
+from matplotlib.patches import Rectangle, Polygon, Circle
 
 plt.rcParams['keymap.save'] = ''
 plt.rcParams['keymap.quit'] = ''
@@ -151,68 +151,6 @@ class InteractiveView:
             top_right = cur_wcs.all_pix2world(x_max, y_max, 0)
             self._im_bounds[n] = (bottom_left, bottom_right, top_right, top_left)
 
-        # self._regions = deepcopy(phot_prod.regions)
-
-        # This is for storing references to artists with an ObsID key, so we know which artist belongs
-        #  to which ObsID. Populated in the first part of _draw_regions. We also construct the reverse so that
-        #  an artist instance can be easily used to lookup the ObsID it belongs to
-        # self._obsid_artists = {o: [] for o in self._parent_phot_obj.obs_ids}
-        # self._artist_obsids = {}
-        # # In the same vein I setup a lookup dictionary for artist to region
-        # self._artist_region = {}
-
-        # Getting a total length (in pixels) of the two ratemaps - this was in order to try and figure out good
-        #  coordinates for the axes to be added to the figure. It all got a bit hand wavey though, and I just adjusted
-        #  things further down until I ended up with a nice looking figure.
-        # tot_x = sum([im_d.shape[1] for im_d in self._all_im_data.values()]) + plt_buff * len(self._data_names)
-
-        # pix_height = [im_dat.shape[0] for im_dat in self._all_im_data.values()]
-        #
-        # ind_max_height = np.argmax(pix_height)
-        # name_max_height = self._data_names[ind_max_height]
-        # val_max_height = pix_height[ind_max_height]
-        #
-        # y_conv = {n: val_max_height / pix_height[n_ind] for n_ind, n in enumerate(self._data_names)}
-        # ax_fracs = {n: y_conv[n] / sum(list(y_conv.values())) for n in self._data_names}
-
-        # width = height*sum(list(y_conv.values()))
-        # width = height*3
-
-        # height = width / sum(list(y_conv.values()))
-        #
-        # print((width, height))
-        #
-        # if figsize is not None:
-        #     height = figsize[1]
-        #     width = figsize[0]
-
-        # Setting up the figure within which all the axes (data, buttons, etc.) are placed
-        # in_fig = plt.figure(figsize=(width, height))
-
-        # A bodge-factor I was going to allow for a spacing in between the two ratemaps
-        # plt_buff = 1
-        plt_buff = 0
-
-        # self._im_axes = {}
-        # bodge_x = -0.01*tot_x
-        # bodge_x = 0
-        # iter_x_off = 0
-        # for im_d_name, im_d in self._all_im_data.items():
-        #     cur_ax = in_fig.add_axes((iter_x_off / tot_x, 0, (iter_x_off + im_d.shape[1]) / tot_x, 1))
-        #     self._im_axes[im_d_name] = cur_ax
-        #     iter_x_off += im_d.shape[1] + plt_buff - bodge_x
-
-        # for data_name_ind, data_name in enumerate(self._data_names):
-        #     # start_x = sum(list(ax_fracs.values())[:data_name_ind])
-        #     # stop_x = start_x + ax_fracs[data_name]
-        #     # cur_ax = in_fig.add_axes((start_x, 0, stop_x, 1))
-        #     # self._im_axes[data_name] = cur_ax
-        #     test_frac = (1/len(self._all_im_data))
-        #     start_x = data_name_ind * test_frac
-        #     stop_x = start_x + test_frac
-        #     cur_ax = in_fig.add_axes((start_x, 0, stop_x, 1))
-        #     self._im_axes[data_name] = cur_ax
-
         in_fig, all_axes = plt.subplots(1, ncols=len(self._data_names), sharex=False, sharey=False,
                                         figsize=figsize)
         self._im_axes = {n: all_axes[n_ind] for n_ind, n in enumerate(self._data_names)}
@@ -226,7 +164,7 @@ class InteractiveView:
             im_ax.tick_params(axis='both', direction='in', which='both', top=False, right=False)
             im_ax.xaxis.set_ticklabels([])
             im_ax.yaxis.set_ticklabels([])
-            # im_ax.margins(0)
+            im_ax.margins(0)
             self._ax_locs[data_name] = im_ax.get_position()
 
         self._im_axes[self._primary_data_name].annotate(r'COORD = [N/A, N/A] $^{\circ}$', [0.05, 1.02],
@@ -235,9 +173,49 @@ class InteractiveView:
                                                         annotation_clip=False)
         self._fig.tight_layout(w_pad=0.4)
 
+        # ------------------- SETTING UP BCG CAND STORAGE -------------------
+        self._cand_ra_dec = {}
+
+        # -------------------------------------------------------------------
+
+        # ------------------- CUSTOMISING TOOLBAR BUTTONS -------------------
         # Removes the save figure button from the toolbar
         new_tt = [t_item for t_item in self._fig.canvas.manager.toolbar.toolitems if t_item[0] != 'Download']
-        self._fig.canvas.manager.toolbar.toolitems = new_tt
+
+        # ADDING A NEW SAVE BUTTON - uses the same icon, but actually saves the cross-hair position as a
+        #  BCG candidate position, puts down a white circle as a reminder, and clears the cross-hair
+        def save_bcg_cand():
+            if self._last_click != (None, None):
+                prim_ax = self._im_axes[self._primary_data_name]
+                for art in list(prim_ax.lines):
+                    art.remove()
+
+                self._cand_ra_dec[len(self._cand_ra_dec)] = self._last_radec
+
+                with open('laaaaads.txt', 'a+') as f:
+                    to_write = ','.join([str(len(self._cand_ra_dec)), str(self._last_radec[0]),
+                                         str(self._last_radec[1])]) + '\n'
+                    f.write(to_write)
+
+                prim_ax.add_artist(Circle(self._last_click, 10, facecolor='None', edgecolor='white'))
+
+                self._last_click = (None, None)
+
+        # This is a bit of an unsafe bodge, which I got from a GitHub issue reply, but you can add the function
+        #  object as an attribute after it has been declared
+        self._fig.canvas.manager.toolbar.save_bcg_cand = save_bcg_cand
+
+        # ADDING A REFRESH BUTTON - this is in case the user regrets their choice of BCG(s), it will clear previously
+        #  selected coordinates and remove that information from the BCG candidate sample
+        # def reset_bcg_cand():
+        #     if len(self._cand_ra_dec) == 0:
+
+
+        # Finally, we add the new set of toolitems back into the toolbar instance
+        self._fig.canvas.manager.toolbar.toolitems = [*new_tt,
+                                        ("BCG", "Save BCG Candidate", "save", "save_bcg_cand")]
+        # -------------------------------------------------------------------
+
 
         # Setting up some visual stuff that is used in multiple places throughout the class
         # First the colours of buttons in an active and inactive state (the region toggles)
@@ -328,9 +306,8 @@ class InteractiveView:
         # The currently selected region is referenced in this attribute
         self._cur_pick = None
         # The last coordinate ON THE IMAGE that was clicked is stored here. Initial value is set to the centre
-        self._last_click = (self._all_im_data[self._primary_data_name].shape[0] / 2,
-                            self._all_im_data[self._primary_data_name].shape[1] / 2)
-        self._last_radec = self._all_im_wcs[self._primary_data_name].all_pix2world(*self._last_click, 0)
+        self._last_click = (None, None)
+        self._last_radec = (None, None)
 
         # This describes whether the artist stored in _cur_pick (if there is one) is right now being clicked
         #  and held - this is used for enabling clicking and dragging so the method knows when to stop.
