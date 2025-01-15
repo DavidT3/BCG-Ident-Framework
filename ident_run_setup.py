@@ -248,7 +248,7 @@ class InteractiveView:
         # The last coordinate ON THE IMAGE that was clicked is stored here. Initial value is set to the centre
         self._last_click = (self._all_im_data[self._primary_data_name].shape[0] / 2,
                             self._all_im_data[self._primary_data_name].shape[1] / 2)
-        self._last_radec = self._all_im_wcs[self._primary_data_name].allpix2world(*self._last_click, 0)
+        self._last_radec = self._all_im_wcs[self._primary_data_name].all_pix2world(*self._last_click, 0)
 
         # This describes whether the artist stored in _cur_pick (if there is one) is right now being clicked
         #  and held - this is used for enabling clicking and dragging so the method knows when to stop.
