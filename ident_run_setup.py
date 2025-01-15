@@ -175,7 +175,9 @@ class InteractiveView:
 
         # ------------------- SETTING UP BCG CAND STORAGE -------------------
         self._cand_ra_dec = {}
-
+        # This attribute is set when the cluster is considered as 'reviewed' - i.e. when there are BCG candidates
+        #  stored, or the button specifying there aren't any BCGs is clicked
+        self._reviewed = False
         # -------------------------------------------------------------------
 
         # ------------------- CUSTOMISING TOOLBAR BUTTONS -------------------
@@ -200,20 +202,41 @@ class InteractiveView:
                 prim_ax.add_artist(Circle(self._last_click, 10, facecolor='None', edgecolor='white'))
 
                 self._last_click = (None, None)
+                self._reviewed = True
 
         # This is a bit of an unsafe bodge, which I got from a GitHub issue reply, but you can add the function
         #  object as an attribute after it has been declared
         self._fig.canvas.manager.toolbar.save_bcg_cand = save_bcg_cand
+        # Add the new button to the modified set of tool items
+        new_tt.append(("BCG", "Save BCG Candidate", "save", "save_bcg_cand"))
 
         # ADDING A REFRESH BUTTON - this is in case the user regrets their choice of BCG(s), it will clear previously
         #  selected coordinates and remove that information from the BCG candidate sample
-        # def reset_bcg_cand():
-        #     if len(self._cand_ra_dec) == 0:
+        def reset_bcg_cand():
+            if len(self._cand_ra_dec) != 0:
+                prim_ax = self._im_axes[self._primary_data_name]
+                for patch in prim_ax.patches:
+                    if isinstance(patch, Circle):
+                        patch.remove()
 
+                self._cand_ra_dec = {}
+                self._reviewed = False
+
+        # Use the bodge again, adding the reset function
+        self._fig.canvas.manager.toolbar.reset_bcg_cand = reset_bcg_cand
+        new_tt.append(("Reset BCG", "Reset BCG Candidates", "refresh", "reset_bcg_cand"))
+
+        # ADDING A NO BCG IDENTIFIED BUTTON - there may be cases where the student can't identify a BCG, or there
+        #  simply isn't really one there. In that case we don't want to just not record a BCG, as that could be
+        #  confused with the idea that the cluster hasn't been looked at at all
+        def no_bcg_cand():
+            self._reviewed = True
+        # Use the bodge again, adding the no BCG function
+        self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
+        new_tt.append(("No BCG", "No BCG Candidates", "exclamation-circle", "no_bcg_cand"))
 
         # Finally, we add the new set of toolitems back into the toolbar instance
-        self._fig.canvas.manager.toolbar.toolitems = [*new_tt,
-                                        ("BCG", "Save BCG Candidate", "save", "save_bcg_cand")]
+        self._fig.canvas.manager.toolbar.toolitems = new_tt
         # -------------------------------------------------------------------
 
 
