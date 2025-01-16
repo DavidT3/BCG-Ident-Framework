@@ -110,6 +110,18 @@ def update_history(new_entry: Union[dict, List[dict]]) -> dict:
         json.dump(new_history, write_historo)
 
     return new_history
+
+def load_output_sample() -> pd.DataFrame:
+    if os.path.exists(OUTPUT_SAMP_FILE_PATH):
+        out_samp_df = pd.read_csv(OUTPUT_SAMP_FILE_PATH)
+
+    else:
+        cols = ['cluster_name']
+        data = []
+        out_samp_df = pd.DataFrame(data, columns=cols)
+        out_samp_df.to_csv(OUTPUT_SAMP_FILE_PATH, index=False)
+
+    return out_samp_df
 # ----------------------------------------------------------------------------------
 
 # --------------------------------- USEFUL CLASSES ---------------------------------
