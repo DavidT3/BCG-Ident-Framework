@@ -215,6 +215,8 @@ class InteractiveView:
         # This attribute is set when the cluster is considered as 'reviewed' - i.e. when there are BCG candidates
         #  stored, or the button specifying there aren't any BCGs is clicked
         self._reviewed = False
+        # Explicitly defining an attribute for the 'no BCG' button to populate
+        self._no_bcg = False
         # -------------------------------------------------------------------
 
         # ------------------- CUSTOMISING TOOLBAR BUTTONS -------------------
@@ -246,8 +248,14 @@ class InteractiveView:
                 rel_entry[cur_bcg_name] = {self._primary_data_name+"_pos": [self._last_radec[0],
                                                                             self._last_radec[1]]}
                 read_hist['bcg_identification'][self._cluster_name] = rel_entry
-
                 update_history(read_hist)
+
+                # The same data are also stored in a sample csv file
+                out_info = {"no_bcg_cand": False,
+                            cur_bcg_name+"_"+self._primary_data_name + "_ra": self._last_radec[0],
+                            cur_bcg_name+"_"+self._primary_data_name + "_dec": self._last_radec[1],
+                            }
+                update_output_sample(self._cluster_name, out_info)
 
                 prim_ax.add_artist(Circle(self._last_click, 10, facecolor='None', edgecolor='white'))
 
@@ -275,7 +283,24 @@ class InteractiveView:
                 read_hist['bcg_identification'][self._cluster_name] = rel_entry
                 update_history(read_hist)
 
+                col_to_remove = ['BCG' + str(b_ind+1) + "_" + self._primary_data_name + "_" + add_on
+                                 for b_ind in self._cand_ra_dec for add_on in ['ra', 'dec']]
+                col_to_remove += ['no_bcg_cand']
+                update_output_sample(self._cluster_name, to_remove=col_to_remove)
+
                 self._cand_ra_dec = {}
+                self._reviewed = False
+
+            if self._no_bcg:
+                col_to_remove = ['no_bcg_cand']
+                update_output_sample(self._cluster_name, to_remove=col_to_remove)
+
+                read_hist = load_history()
+                rel_entry = {'ident_complete': False}
+                read_hist['bcg_identification'][self._cluster_name] = rel_entry
+                update_history(read_hist)
+
+                self._no_bcg = False
                 self._reviewed = False
 
         # Use the bodge again, adding the reset function
@@ -287,14 +312,18 @@ class InteractiveView:
         #  confused with the idea that the cluster hasn't been looked at at all
         def no_bcg_cand():
             self._reviewed = True
+            self._no_bcg = True
 
             read_hist = load_history()
             rel_entry = read_hist['bcg_identification'][self._cluster_name]
             rel_entry['ident_complete'] = True
             rel_entry['no_bcg'] = True
             read_hist['bcg_identification'][self._cluster_name] = rel_entry
-
             update_history(read_hist)
+
+            # The same data are also stored in a sample csv file
+            out_info = {"no_bcg_cand": True}
+            update_output_sample(self._cluster_name, out_info)
 
         # Use the bodge again, adding the no BCG function
         self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
