@@ -203,6 +203,9 @@ class InteractiveView:
                 read_hist = load_history()
                 rel_entry = read_hist['bcg_identification'][self._cluster_name]
                 rel_entry['ident_complete'] = True
+                # This is a flag that helps explicitly define if no BCG candidates were located, obviously False
+                #  in this case
+                rel_entry['no_bcg'] = False
                 cur_bcg_name = 'BCG' + str(len(self._cand_ra_dec))
                 rel_entry[cur_bcg_name] = {self._primary_data_name+"_pos": [self._last_radec[0],
                                                                             self._last_radec[1]]}
@@ -248,6 +251,14 @@ class InteractiveView:
         #  confused with the idea that the cluster hasn't been looked at at all
         def no_bcg_cand():
             self._reviewed = True
+
+            read_hist = load_history()
+            rel_entry = read_hist['bcg_identification'][self._cluster_name]
+            rel_entry['ident_complete'] = True
+            rel_entry['no_bcg'] = True
+            read_hist['bcg_identification'][self._cluster_name] = rel_entry
+
+            update_history(read_hist)
 
         # Use the bodge again, adding the no BCG function
         self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
