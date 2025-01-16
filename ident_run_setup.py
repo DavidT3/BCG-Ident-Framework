@@ -230,6 +230,12 @@ class InteractiveView:
                     if isinstance(patch, Circle):
                         patch.remove()
 
+                # Have to remove the history entry
+                read_hist = load_history()
+                rel_entry = {'ident_complete': False}
+                read_hist['bcg_identification'][self._cluster_name] = rel_entry
+                update_history(read_hist)
+
                 self._cand_ra_dec = {}
                 self._reviewed = False
 
