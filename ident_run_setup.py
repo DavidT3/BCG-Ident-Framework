@@ -122,6 +122,30 @@ def load_output_sample() -> pd.DataFrame:
         out_samp_df.to_csv(OUTPUT_SAMP_FILE_PATH, index=False)
 
     return out_samp_df
+
+def update_output_sample(cluster_name, to_add: dict = None, to_remove: list = None) -> pd.DataFrame:
+    out_samp = load_output_sample()
+
+    if to_add is None and to_remove is None:
+        raise ValueError("Either to_add or to_remove must be specified.")
+
+    if cluster_name not in out_samp['cluster_name'].values:
+        out_samp = pd.concat([out_samp, pd.DataFrame({"cluster_name": [cluster_name]})], ignore_index=True)
+
+    cl_ind = np.where(out_samp['cluster_name'].values == cluster_name)[0]
+
+    if to_remove is not None:
+        out_samp.loc[cl_ind, to_remove] = np.NaN
+
+    if to_add is not None:
+        to_add_cols = list(to_add.keys())
+        to_add_vals = list(to_add.values())
+        out_samp.loc[cl_ind, to_add_cols] = to_add_vals
+
+    out_samp.to_csv(OUTPUT_SAMP_FILE_PATH, index=False)
+
+    return out_samp
+
 # ----------------------------------------------------------------------------------
 
 # --------------------------------- USEFUL CLASSES ---------------------------------
