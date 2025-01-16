@@ -114,13 +114,14 @@ def update_history(new_entry: Union[dict, List[dict]]) -> dict:
 
 # --------------------------------- USEFUL CLASSES ---------------------------------
 class InteractiveView:
-    def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, figsize = (10, 4),
-                 im_scale: dict = None):
+    def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, cluster_name: str,
+                 figsize = (10, 4), im_scale: dict = None):
 
         self._all_im_data = im_data
         self._all_im_wcs = im_wcs
         self._data_names = list(im_data.keys())
         self._primary_data_name = primary_data_name
+        self._cluster_name = cluster_name
 
         if im_scale is not None:
             self._all_im_scale = {n: im_scale[n] if n in im_scale else None for n in self._all_im_data.keys()}
@@ -194,10 +195,20 @@ class InteractiveView:
 
                 self._cand_ra_dec[len(self._cand_ra_dec)] = self._last_radec
 
-                with open('laaaaads.txt', 'a+') as f:
-                    to_write = ','.join([str(len(self._cand_ra_dec)), str(self._last_radec[0]),
-                                         str(self._last_radec[1])]) + '\n'
-                    f.write(to_write)
+                # with open('laaaaads.txt', 'a+') as f:
+                #     to_write = ','.join([str(len(self._cand_ra_dec)), str(self._last_radec[0]),
+                #                          str(self._last_radec[1])]) + '\n'
+                #     f.write(to_write)
+
+                read_hist = load_history()
+                rel_entry = read_hist['bcg_identification'][self._cluster_name]
+                rel_entry['ident_complete'] = True
+                cur_bcg_name = 'BCG' + str(len(self._cand_ra_dec))
+                rel_entry[cur_bcg_name] = {self._primary_data_name+"_pos": [self._last_radec[0],
+                                                                            self._last_radec[1]]}
+                read_hist['bcg_identification'][self._cluster_name] = rel_entry
+
+                update_history(read_hist)
 
                 prim_ax.add_artist(Circle(self._last_click, 10, facecolor='None', edgecolor='white'))
 
@@ -231,6 +242,7 @@ class InteractiveView:
         #  confused with the idea that the cluster hasn't been looked at at all
         def no_bcg_cand():
             self._reviewed = True
+
         # Use the bodge again, adding the no BCG function
         self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
         new_tt.append(("No BCG", "No BCG Candidates", "exclamation-circle", "no_bcg_cand"))
