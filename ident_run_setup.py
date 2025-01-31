@@ -208,6 +208,7 @@ class InteractiveView:
                                                         xycoords='axes fraction',
                                                         fontsize=11, color="black", fontweight = "bold",
                                                         annotation_clip=False)
+        self._fig.suptitle(cluster_name)
         self._fig.tight_layout(w_pad=0.4)
 
         # ------------------- SETTING UP BCG CAND STORAGE -------------------
