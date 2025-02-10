@@ -87,9 +87,9 @@ def load_history() -> dict:
         raise ValueError("Chosen missions in the history file are different than currently "
                          "configured - adding new missions to an identification project is not currently supported.")
     
-    if read_hist['cosmo_repr'] != str(cosmo):
-        raise ValueError("Cosmology in the history file is different than currently "
-                         "configured - you cannot make configuration changes without making a new project.")
+    # if read_hist['cosmo_repr'] != str(cosmo):
+    #     raise ValueError("Cosmology in the history file is different than currently "
+    #                      "configured - you cannot make configuration changes without making a new project.")
 
     if read_hist['side_length'] != side_length.to('kpc').value:
         raise ValueError("The side length in the history file is different than currently "
