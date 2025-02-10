@@ -42,7 +42,7 @@ side_length = Quantity(2000, 'kpc')
 # Configures the missions from which images should be downloaded or generated
 include_miss = {'xmm': True,
                 'desi-ls': True,
-                'vlass': True,
+                'vlass': False,
                 'lofar-lotss': False
                }
 rel_miss = [mn for mn, m_use in include_miss.items() if m_use]
