@@ -8,7 +8,6 @@ from typing import Union, List, Tuple, Dict
 
 from astropy.visualization import MinMaxInterval, LogStretch, SinhStretch, AsinhStretch, SqrtStretch, SquaredStretch, \
     LinearStretch, ImageNormalize
-from everystamp.downloaders import LegacyDownloader, VLASSDownloader, LoTSSDownloader
 import os
 import json
 from copy import deepcopy
@@ -22,7 +21,7 @@ stretch_dict = {'LOG': LogStretch(), 'SINH': SinhStretch(), 'ASINH': AsinhStretc
                 'SQRD': SquaredStretch(), 'LIN': LinearStretch()}
 
 # Useful constants are set up here
-HISTORY_ROOT = os.path.abspath("history/") 
+HISTORY_ROOT = os.path.abspath("history/")
 HISTORY_FILE_PATH = os.path.join(HISTORY_ROOT, 'bcg_ident_proj_save.json')
 OUTPUT_ROOT = os.path.abspath("outputs/")
 OUTPUT_SAMP_FILE_PATH = os.path.join(OUTPUT_ROOT, 'bcg_output_sample.csv')
@@ -48,13 +47,21 @@ include_miss = {'xmm': True,
                }
 rel_miss = [mn for mn, m_use in include_miss.items() if m_use]
 
-# Matches mission names to 'EveryStamp' downloader classes
-rel_downloaders = {'xmm': None,
-                   'desi-ls': LegacyDownloader,
-                   'vlass': VLASSDownloader,
-                   'lofar-lotss': LoTSSDownloader
-                  }
-rel_downloaders = {rd_name: rd for rd_name, rd in rel_downloaders.items() if include_miss[rd_name]}
+# This is a bit crude and ugly, but everystamp can be a little hard to install so I want to be able to deal
+#  with it not being there - for people using this. Obviously you'll need it if you're setting up a project
+try:
+    from everystamp.downloaders import LegacyDownloader, VLASSDownloader, LoTSSDownloader
+
+    # Matches mission names to 'EveryStamp' downloader classes
+    rel_downloaders = {'xmm': None,
+                       'desi-ls': LegacyDownloader,
+                       'vlass': VLASSDownloader,
+                       'lofar-lotss': LoTSSDownloader
+                      }
+    rel_downloaders = {rd_name: rd for rd_name, rd in rel_downloaders.items() if include_miss[rd_name]}
+
+except ImportError:
+    pass
 
 # -------------------------------- USEFUL FUNCTIONS --------------------------------
 def load_history() -> dict:
