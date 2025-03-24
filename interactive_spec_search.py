@@ -8,6 +8,7 @@ from astropy.coordinates import SkyCoord
 from astropy.table import Table
 from astropy.units import Quantity, UnitConversionError
 from astropy.io import fits
+from astropy.convolution import convolve, Gaussian1DKernel
 from bs4 import BeautifulSoup
 from matplotlib.axes import Axes
 from matplotlib.lines import Line2D
@@ -16,6 +17,7 @@ import pandas as pd
 import numpy as np
 from typing import Union, List, Tuple, Dict
 import io
+from sparcl.client import SparclClient
 
 from astropy.visualization import MinMaxInterval, LogStretch, SinhStretch, AsinhStretch, SqrtStretch, SquaredStretch, \
     LinearStretch, ImageNormalize
@@ -87,7 +89,8 @@ SURVEY_COLOURS = {'6df': 'limegreen',
 
 class SpecSearch:
     def __init__(self, im_data: dict, im_wcs: dict, primary_data_name: str, cluster_name: str, bcg_cands: SkyCoord,
-                 figsize=(10, 4), im_scale: dict = None, spec_sources: list = None, im_spec_ratio: list = None):
+                 figsize=(10, 4), im_scale: dict = None, spec_sources: list = None, im_spec_ratio: list = None,
+                 default_smooth_spec: int = None):
 
         self._all_im_data = im_data
         self._all_im_wcs = im_wcs
@@ -265,6 +268,9 @@ class SpecSearch:
 
         self._tap_services = {ss: TAPService(ss_url) for ss, ss_url in spec_sources.items()}
 
+        # Setting up NOIRLab Sparcl Client
+        self._noirlab_client = SparclClient()
+
         # -------------------------------------------------------------------
 
         # ------------------- SETTING UP SPEC STORAGE -------------------
@@ -277,6 +283,8 @@ class SpecSearch:
         self._spec_arts = {}
 
         # -------------------------------------------------------------------
+
+        self._smth_std_dev = default_smooth_spec
 
         self._search_rcsed()
         self._search_desidr1()
@@ -515,8 +523,8 @@ class SpecSearch:
                         if cur_ft in self._all_spec_data['rcsedv2'][r_spec_id]:
                             continue
 
-                        # This opens a session that will persist - then a lot of the next session is for checking that the expected
-                        #  directories are present.
+                        # This opens a session that will persist - then a lot of the next session is for checking
+                        #  that the expected directories are present.
                         session = requests.Session()
 
                         ft_url = RCSEDv2_BASE + "gama/{ft}/".format(ft=cur_ft)
@@ -627,6 +635,36 @@ class SpecSearch:
                                 del cur_tab['FLUX']
                                 del cur_tab['ERROR']
                                 self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+
+    def _fetch_desi(self, desi_spec_id):
+        if desi_spec_id is None:
+            desi_spec_id = self._field_spec_search_tables['noirlab-desi']['spec_id'].data.astype(int).tolist()
+        elif isinstance(desi_spec_id, (str, int)):
+            desi_spec_id = [int(desi_spec_id)]
+
+        to_fetch = ['specid', 'redshift', 'flux', 'wavelength', 'spectype', 'specprimary', 'survey',
+                    'program', 'targetid', 'redshift_warning']
+
+        fetched_spec = self._noirlab_client.retrieve_by_specid(desi_spec_id, include=to_fetch,
+                                                               dataset_list=['DESI-DR1'], limit=10000)
+        
+        for spec_data in fetched_spec.data[1:]:
+            
+            cur_d_spec_id = spec_data['specid']
+
+            sp_plot_data = {'wavelength': spec_data['wavelength'].flatten(),
+                            'flux': spec_data['flux'].flatten(),
+                            # 'flux_err': spec_data['flux_err'].flatten(),
+                            'survey': 'noirlab-desidr1'}
+
+            self._spec_plot_data['noirlab-desidr1'][cur_d_spec_id] = sp_plot_data
+
+            # # del cur_tab['WAVE']
+            # # del cur_tab['FLUX']
+            # # del cur_tab['ERROR']
+            # # self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+            #
+            # self._all_spec_data['noirlab-desi'][cur_d_spec_id]['nofit'] = spec_data
 
     def _update_spec_locs(self):
         ax = self._im_axes[self._primary_data_name]
@@ -832,10 +870,18 @@ class SpecSearch:
             self._fetch_rcsed_spec_models(rel_id)
 
             self._draw_spectrum(sp_src_id['spec_source'], rel_id)
+        elif sp_src_id['spec_source'] == 'noirlab-desidr1':
+            rel_id = sp_src_id['spec_id']
+
+            self._fetch_desi(rel_id)
+            self._draw_spectrum(sp_src_id['spec_source'], rel_id)
         else:
             pass
 
-    def _draw_spectrum(self, spec_source, spec_id):
+    def _draw_spectrum(self, spec_source, spec_id, smooth_stddev: int = None):
+
+        if smooth_stddev is None:
+            smooth_stddev = self._smth_std_dev
 
         sp_ax = self._spec_ax
         sp_ax.clear()
@@ -848,11 +894,20 @@ class SpecSearch:
         rel_data = self._spec_plot_data[spec_source][spec_id]
         sp_ax.plot(rel_data['wavelength'], rel_data['flux'], color='silver', alpha=0.8)
 
+        if smooth_stddev is not None:
+            smoothed = convolve(rel_data['flux'], Gaussian1DKernel(smooth_stddev))
+            sp_ax.plot(rel_data['wavelength'], smoothed, color='black', alpha=1)
+
         sp_ax.set_title('{ss} {s} - {s_id}'.format(ss=spec_source, s=rel_data['survey'], s_id=spec_id))
 
         # This ensures that the axis limit history that the toolbar keeps, for when you want to reset the view, is
         #  updated from the autoscaled size of the axis with the current spectrum
-        sp_ax.update()
+        # sp_ax.update()
+        # self._fig.canvas.draw()
+        sp_ax.redraw_in_frame()
+
+        self._fig.canvas.manager.toolbar.push_current()
+
 
     def _on_release(self, event):
         """
