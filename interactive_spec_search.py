@@ -31,21 +31,24 @@ from xga.imagetools.misc import pix_deg_scale
 stretch_dict = {'LOG': LogStretch(), 'SINH': SinhStretch(), 'ASINH': AsinhStretch(), 'SQRT': SqrtStretch(),
                 'SQRD': SquaredStretch(), 'LIN': LinearStretch()}
 
-ALL_SPEC_SERV = {'rcsedv2': "https://dc.voxastro.org/tap"}
+ALL_SPEC_SERV = {'rcsedv2': "https://dc.voxastro.org/tap",
+                 'noirlab-desidr1': "https://datalab.noirlab.edu/tap"}
 
 RCSEDv2_FIT_TYPES = {'6df': ['emiles_emis1', 'miles_mgfe_emis1', 'pegase_expsfh_emis1', 'pegase_ssp_emis1'],
                      'sdss': ['miles', 'miles_mgfe', 'pegase', 'xshooter'],
                      'eboss': ['miles', 'miles_mgfe', 'pegase', 'xshooter'],
                      'hectospec': ['emiles_emis1', 'miles_mgfe_emis1', 'pegase_expsfh_emis1', 'pegase_ssp_emis1'],
                      'gama': ['emiles', 'miles_mgfe', 'xshooter'],
-                     'fast': ['emiles_emis1', 'miles_mgfe_emis1', 'pegase_expsfh_emis1', 'pegase_ssp_emis1']}
+                     'fast': ['emiles_emis1', 'miles_mgfe_emis1', 'pegase_expsfh_emis1', 'pegase_ssp_emis1'],
+                     '2df': ['emiles_emis1', 'miles_mgfe_emis1', 'pegase_expsfh_emis1', 'pegase_ssp_emis1']}
 
 DEFAULT_RCSEDv2_FIT_TYPE = {'6df': 'emiles_emis1',
                             'sdss': 'miles',
                             'eboss': 'miles',
                             'hectospec': 'emiles_emis1',
                             'gama': 'emiles',
-                            'fast': 'emiles_emis1'}
+                            'fast': 'emiles_emis1',
+                            '2df': 'emiles_emis1'}
 
 RCSEDv2_BASE = 'https://data.voxastro.org/rcsed2/'
 RCSEDv2_FIT_DOWN_URLS = {'6df': RCSEDv2_BASE + '6dfgs/{ft}/{f_id}/nbursts_6df_{f_id}{s_id}.fits.gz',
@@ -53,7 +56,8 @@ RCSEDv2_FIT_DOWN_URLS = {'6df': RCSEDv2_BASE + '6dfgs/{ft}/{f_id}/nbursts_6df_{f
                          'eboss': RCSEDv2_BASE + 'sdss/{ft}/{dk}/{p}/nbursts_sdss_{p}_{m}_{f}_{ft}_{dk}.fits.gz',
                          'hectospec': RCSEDv2_BASE + 'hectospec/{ft}/{hd}/{hds}/nbursts_hectospec_{hs}.gz',
                          'gama': RCSEDv2_BASE + 'gama/{ft}/{dk}/{gid}/nbursts_gama_{fgid}_{ft}_{dk}.fits.gz',
-                         'fast': RCSEDv2_BASE + 'fast/{ft}/{y}/{fd}/nbursts_fast_{fid}.fits.gz'}
+                         'fast': RCSEDv2_BASE + 'fast/{ft}/{y}/{fd}/nbursts_fast_{fid}.fits.gz',
+                         '2df': RCSEDv2_BASE + '2dfgrs/{ft}/{f}/{c}/nbursts_2df_{s_id}_{e}.fits.gz'}
 
 # RADII SPECIFICALLY
 # TODO COULDN'T FIND APERTURE FOR CFA - FAST APERTURE DEPENDS ON SLIT
@@ -64,7 +68,9 @@ SURVEY_AP_SIZE = {'6df': Quantity(6.7/2, 'arcsec'),
                   'cfa': Quantity(10, 'arcsec'),
                   'hectospec': Quantity(1.5/2, 'arcsec'),
                   'gama': Quantity(2/2, 'arcsec'),
-                  'fast': Quantity(10, 'arcsec'),}
+                  'fast': Quantity(10, 'arcsec'),
+                  '2df': Quantity(2.1/2, 'arcsec'),
+                  'desi': Quantity(1.5/2, 'arcsec')}
 
 SURVEY_COLOURS = {'6df': 'limegreen',
                   'sdss': 'mediumorchid',
@@ -73,7 +79,10 @@ SURVEY_COLOURS = {'6df': 'limegreen',
                   'cfa': 'olive',
                   'hectospec': 'tab:cyan',
                   'gama': 'darkorange',
-                  'fast': 'forestgreen'}
+                  'fast': 'forestgreen',
+                  '2df': 'palegreen',
+                  'uzc': 'teal',
+                  'desi': 'crimson'}
 
 
 class SpecSearch:
@@ -270,6 +279,7 @@ class SpecSearch:
         # -------------------------------------------------------------------
 
         self._search_rcsed()
+        self._search_desidr1()
 
     def dynamic_view(self):
         """
@@ -314,6 +324,43 @@ class SpecSearch:
         search_res = search_res.to_table()
         search_res.rename_column('r2id_spec', 'spec_id')
         self._field_spec_search_tables['rcsedv2'] = search_res
+
+        self._update_spec_locs()
+
+    def _search_desidr1(self):
+
+        bottom_left = self._im_bounds[self._primary_data_name][0]
+        top_right = self._im_bounds[self._primary_data_name][2]
+
+        min_ra = min([bottom_left[0], top_right[0]])
+        max_ra = max([bottom_left[0], top_right[0]])
+
+        min_dec = min([bottom_left[1], top_right[1]])
+        max_dec = max([bottom_left[1], top_right[1]])
+
+        query = """
+            SELECT
+            *
+            FROM desi_dr1.zpix
+            WHERE 
+            mean_fiber_ra BETWEEN {min_ra} AND {max_ra}
+            AND
+            mean_fiber_dec BETWEEN {min_de} AND {max_de}
+            """.format(min_ra=min_ra, max_ra=max_ra, min_de=min_dec, max_de=max_dec)
+
+        search_res = self._tap_services['noirlab-desidr1'].search(query, maxrec=2000000)
+
+        cur_spec_pos = {}
+        for ind in range(len(search_res)):
+            cur_pos = Quantity([search_res.getrecord(ind)['mean_fiber_ra'],
+                                search_res.getrecord(ind)['mean_fiber_dec']], 'deg')
+            cur_spec_pos[int(search_res.getrecord(ind)['targetid'])] = cur_pos
+
+        self._field_spec_ra_dec['noirlab-desidr1'] = cur_spec_pos
+        search_res = search_res.to_table()
+        search_res.rename_column('targetid', 'spec_id')
+        search_res['survey'] = 'desi'
+        self._field_spec_search_tables['noirlab-desidr1'] = search_res
 
         self._update_spec_locs()
 
@@ -526,7 +573,6 @@ class SpecSearch:
 
                         rel_url = RCSEDv2_FIT_DOWN_URLS[rel_row['survey']].format(ft=cur_ft, y=fast_year,
                                                                                   fd=fast_dataset, fid=fast_spec)
-                        print(rel_url)
 
                         with requests.get(rel_url, stream=True) as responso:
                             # This opens the data as using the astropy fits interface (using io.BytesIO() to
@@ -534,6 +580,41 @@ class SpecSearch:
                             #  opened file handler).
                             with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
                                 cur_tab = Table(cur_sp['SPECTRUM'].data)
+                                if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
+                                    sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
+                                                    'flux': cur_tab['FLUX'].data.flatten(),
+                                                    'flux_err': cur_tab['ERROR'].data.flatten(),
+                                                    'survey': rel_row['survey']}
+
+                                    self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
+
+                                del cur_tab['WAVE']
+                                del cur_tab['FLUX']
+                                del cur_tab['ERROR']
+                                self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+
+                elif rel_row['survey'] == '2df':
+                    twodf_seq = rel_row['twodf_seqnum']
+                    twodf_field = rel_row['twodf_ifield']
+                    twodf_conf = rel_row['twodf_iconf']
+                    twodf_ext = rel_row['twodf_extnum']
+
+                    for cur_ft in rcsed_fit_type:
+                        if cur_ft in self._all_spec_data['rcsedv2'][r_spec_id]:
+                            continue
+
+                        rel_url = RCSEDv2_FIT_DOWN_URLS[rel_row['survey']].format(ft=cur_ft, f=twodf_field,
+                                                                                  c=twodf_conf, s_id=twodf_seq,
+                                                                                  e=twodf_ext)
+
+                        with requests.get(rel_url, stream=True) as responso:
+                            # This opens the data as using the astropy fits interface (using io.BytesIO() to
+                            #  stream it into memory first so that fits.open can access it as an already
+                            #  opened file handler).
+                            with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
+
+                                cur_tab = Table(cur_sp[1].data)
+
                                 if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
                                     sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
                                                     'flux': cur_tab['FLUX'].data.flatten(),
@@ -559,12 +640,19 @@ class SpecSearch:
                 sp_pos_pix = cur_wcs.all_world2pix(*sp_pos, 0)
 
                 rel_search = self._field_spec_search_tables[spec_source]
+
                 rel_row = rel_search[rel_search['spec_id'] == sp_id]
                 cur_surv = rel_row['survey'].data[0]
 
                 # pix_rad = (SURVEY_AP_SIZE[cur_surv]/pix_deg_scale(sp_pos, cur_wcs)).to('pix').value
                 pix_rad = 10
-                cur_col = SURVEY_COLOURS[cur_surv]
+
+
+                # Possible I've not added some survey colours, so making sure it doesn't just fall over
+                if cur_surv in SURVEY_COLOURS:
+                    cur_col = SURVEY_COLOURS[cur_surv]
+                else:
+                    cur_col = 'white'
 
                 sp_art = Circle(sp_pos_pix, pix_rad, facecolor='None', edgecolor=cur_col,
                                 linewidth=self._reg_line_width)
@@ -572,7 +660,7 @@ class SpecSearch:
                 ax.add_artist(sp_art)
 
                 if cur_surv not in repr_art_surv:
-                    sp_art.set_label(cur_surv)
+                    # sp_art.set_label(cur_surv)
 
                     leg_art = Line2D([], [], color=cur_col, marker='o', markerfacecolor="None", linewidth=0)
                     repr_art.append(leg_art)
