@@ -74,7 +74,8 @@ RCSEDv2_SURVEY_SPEC_IDS = {'6df': {'sixdf_specid': 'spec_id'},
                            'fast': {'fast_date': 'obs_date', 'fast_dataset': 'obs_dataset_id',
                                     'fast_spec' :'fast_dataset_spec_id'},
                            '2df': {'twodf_seqnum': 'obs_sequence_id', 'twodf_ifield': 'obs_field_id',
-                                   'twodf_conf_id': 'obs_iconf', 'twodf_extnum': 'obs_extension_id'}
+                                   'twodf_conf_id': 'obs_iconf', 'twodf_extnum': 'obs_extension_id'},
+                           'cfa': {'cfa_rfn': 'obs_spec_id'}
                            }
 
 # RADII SPECIFICALLY
