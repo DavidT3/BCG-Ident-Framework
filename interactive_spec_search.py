@@ -276,7 +276,7 @@ class SpecSearch:
 
                 self._cur_cand_search_ind = 0
                 self._draw_cur_bcg_cand()
-                self._fig.suptitle(cluster_name)
+                self._fig.suptitle(cluster_name, color='black')
                 self._save_spec_info = {}
 
         # Use the bodge again, adding the reset function
@@ -284,7 +284,7 @@ class SpecSearch:
         new_tt.append(("Reset Spectra", "Reset Selected Spectra", "refresh", "reset_bcg_spec"))
 
         # ADDING A NO SPEC IDENTIFIED BUTTON
-        def no_bcg_cand():
+        def no_bcg_spec():
             read_hist = load_history()
 
             rel_entry = read_hist['bcg_spec_identification'][self._cluster_name]
@@ -301,7 +301,7 @@ class SpecSearch:
             self._next_bcg_cand()
 
         # Use the bodge again, adding the no BCG function
-        self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
+        self._fig.canvas.manager.toolbar.no_bcg_spec = no_bcg_spec
         new_tt.append(("No Spectra", "No BCG Spectra", "exclamation-circle", "no_bcg_spec"))
 
         # Finally, we add the new set of toolitems back into the toolbar instance
