@@ -263,66 +263,46 @@ class SpecSearch:
         # Add the new button to the modified set of tool items
         new_tt.append(("BCG", "Save Identified Spectra", "save", "save_spec_cand"))
 
-        # # ADDING A REFRESH BUTTON - this is in case the user regrets their choice of BCG(s), it will clear previously
-        # #  selected coordinates and remove that information from the BCG candidate sample
-        # def reset_bcg_cand():
-        #     if len(self._cand_ra_dec) != 0:
-        #         prim_ax = self._im_axes[self._primary_data_name]
-        #         for patch in prim_ax.patches:
-        #             if isinstance(patch, Circle):
-        #                 patch.remove()
-        #
-        #         # Have to remove the history entry
-        #         read_hist = load_history()
-        #         rel_entry = {'ident_complete': False}
-        #         read_hist['bcg_identification'][self._cluster_name] = rel_entry
-        #         update_history(read_hist)
-        #
-        #         col_to_remove = ['BCG' + str(b_ind + 1) + "_" + self._primary_data_name + "_" + add_on
-        #                          for b_ind in self._cand_ra_dec for add_on in ['ra', 'dec']]
-        #         col_to_remove += ['no_bcg_cand']
-        #         update_output_sample(self._cluster_name, to_remove=col_to_remove)
-        #
-        #         self._cand_ra_dec = {}
-        #         self._reviewed = False
-        #
-        #     if self._no_bcg:
-        #         col_to_remove = ['no_bcg_cand']
-        #         update_output_sample(self._cluster_name, to_remove=col_to_remove)
-        #
-        #         read_hist = load_history()
-        #         rel_entry = {'ident_complete': False}
-        #         read_hist['bcg_identification'][self._cluster_name] = rel_entry
-        #         update_history(read_hist)
-        #
-        #         self._no_bcg = False
-        #         self._reviewed = False
-        #
-        # # Use the bodge again, adding the reset function
-        # self._fig.canvas.manager.toolbar.reset_bcg_cand = reset_bcg_cand
-        # new_tt.append(("Reset BCG", "Reset BCG Candidates", "refresh", "reset_bcg_cand"))
-        #
-        # # ADDING A NO BCG IDENTIFIED BUTTON - there may be cases where the student can't identify a BCG, or there
-        # #  simply isn't really one there. In that case we don't want to just not record a BCG, as that could be
-        # #  confused with the idea that the cluster hasn't been looked at at all
-        # def no_bcg_cand():
-        #     self._reviewed = True
-        #     self._no_bcg = True
-        #
-        #     read_hist = load_history()
-        #     rel_entry = read_hist['bcg_identification'][self._cluster_name]
-        #     rel_entry['ident_complete'] = True
-        #     rel_entry['no_bcg'] = True
-        #     read_hist['bcg_identification'][self._cluster_name] = rel_entry
-        #     update_history(read_hist)
-        #
-        #     # The same data are also stored in a sample csv file
-        #     out_info = {"no_bcg_cand": True}
-        #     update_output_sample(self._cluster_name, out_info)
-        #
-        # # Use the bodge again, adding the no BCG function
-        # self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
-        # new_tt.append(("No BCG", "No BCG Candidates", "exclamation-circle", "no_bcg_cand"))
+        # ADDING A REFRESH BUTTON - this is in case the user regrets their choice of spec(s), it will clear previously
+        #  selected specs and remove that information from the history
+        def reset_bcg_spec():
+            if len(self._save_spec_info) != 0:
+
+                # Have to remove the history entry
+                read_hist = load_history()
+                rel_entry = {'ident_complete': False}
+                read_hist['bcg_spec_identification'][self._cluster_name] = rel_entry
+                update_history(read_hist)
+
+                self._cur_cand_search_ind = 0
+                self._draw_cur_bcg_cand()
+                self._fig.suptitle(cluster_name)
+                self._save_spec_info = {}
+
+        # Use the bodge again, adding the reset function
+        self._fig.canvas.manager.toolbar.reset_bcg_spec = reset_bcg_spec
+        new_tt.append(("Reset Spectra", "Reset Selected Spectra", "refresh", "reset_bcg_spec"))
+
+        # ADDING A NO SPEC IDENTIFIED BUTTON
+        def no_bcg_cand():
+            read_hist = load_history()
+
+            rel_entry = read_hist['bcg_spec_identification'][self._cluster_name]
+            cur_bcg_name = 'BCG' + str(self._cur_cand_search_ind + 1)
+
+            # This is a top level key, showing whether we've gone through all the BCGs yet
+            rel_entry['ident_complete'] = self._cur_cand_search_ind == (len(self._cur_sel_spec) - 1)
+
+            self._save_spec_info[cur_bcg_name] = {}
+
+            rel_entry[cur_bcg_name] = {'no_spec': True}
+            read_hist['bcg_spec_identification'][self._cluster_name] = rel_entry
+            update_history(read_hist)
+            self._next_bcg_cand()
+
+        # Use the bodge again, adding the no BCG function
+        self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
+        new_tt.append(("No Spectra", "No BCG Spectra", "exclamation-circle", "no_bcg_spec"))
 
         # Finally, we add the new set of toolitems back into the toolbar instance
         self._fig.canvas.manager.toolbar.toolitems = new_tt
@@ -458,6 +438,7 @@ class SpecSearch:
                                weight="bold", color='darkgoldenrod')
         else:
             self._cur_cand_search_ind += 1
+            self._draw_cur_bcg_cand()
 
     def _draw_cur_bcg_cand(self):
         ax = self._im_axes[self._primary_data_name]
