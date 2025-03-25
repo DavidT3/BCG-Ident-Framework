@@ -561,24 +561,27 @@ class SpecSearch:
 
                         rel_url = RCSEDv2_FIT_DOWN_URLS[rel_row['survey']].format(ft=cur_ft, f_id=fh_id, s_id=sh_id)
 
-                        with requests.get(rel_url, stream=True) as responso:
-                            # This opens the data as using the astropy fits interface (using io.BytesIO() to
-                            #  stream it into memory first so that fits.open can access it as an already
-                            #  opened file handler).
-                            with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
-                                cur_tab = Table(cur_sp['SPECTRUM'].data)
-                                if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
-                                    sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
-                                                    'flux': cur_tab['FLUX'].data.flatten(),
-                                                    'flux_err': cur_tab['ERROR'].data.flatten(),
-                                                    'survey': rel_row['survey']}
+                        try:
+                            with requests.get(rel_url, stream=True) as responso:
+                                # This opens the data as using the astropy fits interface (using io.BytesIO() to
+                                #  stream it into memory first so that fits.open can access it as an already
+                                #  opened file handler).
+                                with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
+                                    cur_tab = Table(cur_sp['SPECTRUM'].data)
+                                    if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
+                                        sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
+                                                        'flux': cur_tab['FLUX'].data.flatten(),
+                                                        'flux_err': cur_tab['ERROR'].data.flatten(),
+                                                        'survey': rel_row['survey']}
 
-                                    self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
+                                        self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
 
-                                del cur_tab['WAVE']
-                                del cur_tab['FLUX']
-                                del cur_tab['ERROR']
-                                self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                                    del cur_tab['WAVE']
+                                    del cur_tab['FLUX']
+                                    del cur_tab['ERROR']
+                                    self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                        except gzip.BadGzipFile:
+                            pass
 
                 elif rel_row['survey'] == 'sdss' or rel_row['survey'] == 'eboss':
                     cur_mjd = str(rel_row['sdss_mjd'])
@@ -620,24 +623,27 @@ class SpecSearch:
                                 break
                             cur_ft = 'nofit'
 
-                        with requests.get(rel_url, stream=True) as responso:
-                            # This opens the data as using the astropy fits interface (using io.BytesIO() to
-                            #  stream it into memory first so that fits.open can access it as an already
-                            #  opened file handler).
-                            with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
-                                cur_tab = Table(cur_sp['SPECTRUM'].data)
-                                if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
-                                    sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
-                                                    'flux': cur_tab['FLUX'].data.flatten(),
-                                                    'flux_err': cur_tab['ERROR'].data.flatten(),
-                                                    'survey': rel_row['survey']}
+                        try:
+                            with requests.get(rel_url, stream=True) as responso:
+                                # This opens the data as using the astropy fits interface (using io.BytesIO() to
+                                #  stream it into memory first so that fits.open can access it as an already
+                                #  opened file handler).
+                                with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
+                                    cur_tab = Table(cur_sp['SPECTRUM'].data)
+                                    if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
+                                        sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
+                                                        'flux': cur_tab['FLUX'].data.flatten(),
+                                                        'flux_err': cur_tab['ERROR'].data.flatten(),
+                                                        'survey': rel_row['survey']}
 
-                                    self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
+                                        self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
 
-                                del cur_tab['WAVE']
-                                del cur_tab['FLUX']
-                                del cur_tab['ERROR']
-                                self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                                    del cur_tab['WAVE']
+                                    del cur_tab['FLUX']
+                                    del cur_tab['ERROR']
+                                    self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                        except gzip.BadGzipFile:
+                            pass
 
                 elif rel_row['survey'] == 'hectospec':
                     hectospec_date = rel_row['hectospec_date']
@@ -651,24 +657,27 @@ class SpecSearch:
                         rel_url = RCSEDv2_FIT_DOWN_URLS[rel_row['survey']].format(ft=cur_ft, hd=hectospec_date,
                                                                                   hds=hectospec_dataset,
                                                                                   hs=hectospec_spec)
-                        with requests.get(rel_url, stream=True) as responso:
-                            # This opens the data as using the astropy fits interface (using io.BytesIO() to
-                            #  stream it into memory first so that fits.open can access it as an already
-                            #  opened file handler).
-                            with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
-                                cur_tab = Table(cur_sp['SPECTRUM'].data)
-                                if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
-                                    sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
-                                                    'flux': cur_tab['FLUX'].data.flatten(),
-                                                    'flux_err': cur_tab['ERROR'].data.flatten(),
-                                                    'survey': rel_row['survey']}
+                        try:
+                            with requests.get(rel_url, stream=True) as responso:
+                                # This opens the data as using the astropy fits interface (using io.BytesIO() to
+                                #  stream it into memory first so that fits.open can access it as an already
+                                #  opened file handler).
+                                with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
+                                    cur_tab = Table(cur_sp['SPECTRUM'].data)
+                                    if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
+                                        sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
+                                                        'flux': cur_tab['FLUX'].data.flatten(),
+                                                        'flux_err': cur_tab['ERROR'].data.flatten(),
+                                                        'survey': rel_row['survey']}
 
-                                    self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
+                                        self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
 
-                                del cur_tab['WAVE']
-                                del cur_tab['FLUX']
-                                del cur_tab['ERROR']
-                                self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                                    del cur_tab['WAVE']
+                                    del cur_tab['FLUX']
+                                    del cur_tab['ERROR']
+                                    self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                        except gzip.BadGzipFile:
+                            pass
 
                 elif rel_row['survey'] == 'gama':
                     full_gama_id = rel_row['gama_specid']
@@ -706,24 +715,27 @@ class SpecSearch:
                                 break
                             cur_ft = 'nofit'
 
-                        with requests.get(rel_url, stream=True) as responso:
-                            # This opens the data as using the astropy fits interface (using io.BytesIO() to
-                            #  stream it into memory first so that fits.open can access it as an already
-                            #  opened file handler).
-                            with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
-                                cur_tab = Table(cur_sp['SPECTRUM'].data)
-                                if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
-                                    sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
-                                                    'flux': cur_tab['FLUX'].data.flatten(),
-                                                    'flux_err': cur_tab['ERROR'].data.flatten(),
-                                                    'survey': rel_row['survey']}
+                        try:
+                            with requests.get(rel_url, stream=True) as responso:
+                                # This opens the data as using the astropy fits interface (using io.BytesIO() to
+                                #  stream it into memory first so that fits.open can access it as an already
+                                #  opened file handler).
+                                with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
+                                    cur_tab = Table(cur_sp['SPECTRUM'].data)
+                                    if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
+                                        sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
+                                                        'flux': cur_tab['FLUX'].data.flatten(),
+                                                        'flux_err': cur_tab['ERROR'].data.flatten(),
+                                                        'survey': rel_row['survey']}
 
-                                    self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
+                                        self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
 
-                                del cur_tab['WAVE']
-                                del cur_tab['FLUX']
-                                del cur_tab['ERROR']
-                                self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                                    del cur_tab['WAVE']
+                                    del cur_tab['FLUX']
+                                    del cur_tab['ERROR']
+                                    self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                        except gzip.BadGzipFile:
+                            pass
 
                 elif rel_row['survey'] == 'fast':
                     fast_year = rel_row['fast_date']
@@ -737,24 +749,27 @@ class SpecSearch:
                         rel_url = RCSEDv2_FIT_DOWN_URLS[rel_row['survey']].format(ft=cur_ft, y=fast_year,
                                                                                   fd=fast_dataset, fid=fast_spec)
 
-                        with requests.get(rel_url, stream=True) as responso:
-                            # This opens the data as using the astropy fits interface (using io.BytesIO() to
-                            #  stream it into memory first so that fits.open can access it as an already
-                            #  opened file handler).
-                            with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
-                                cur_tab = Table(cur_sp['SPECTRUM'].data)
-                                if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
-                                    sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
-                                                    'flux': cur_tab['FLUX'].data.flatten(),
-                                                    'flux_err': cur_tab['ERROR'].data.flatten(),
-                                                    'survey': rel_row['survey']}
+                        try:
+                            with requests.get(rel_url, stream=True) as responso:
+                                # This opens the data as using the astropy fits interface (using io.BytesIO() to
+                                #  stream it into memory first so that fits.open can access it as an already
+                                #  opened file handler).
+                                with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
+                                    cur_tab = Table(cur_sp['SPECTRUM'].data)
+                                    if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
+                                        sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
+                                                        'flux': cur_tab['FLUX'].data.flatten(),
+                                                        'flux_err': cur_tab['ERROR'].data.flatten(),
+                                                        'survey': rel_row['survey']}
 
-                                    self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
+                                        self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
 
-                                del cur_tab['WAVE']
-                                del cur_tab['FLUX']
-                                del cur_tab['ERROR']
-                                self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                                    del cur_tab['WAVE']
+                                    del cur_tab['FLUX']
+                                    del cur_tab['ERROR']
+                                    self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                        except gzip.BadGzipFile:
+                            pass
 
                 elif rel_row['survey'] == '2df':
                     twodf_seq = rel_row['twodf_seqnum']
@@ -769,27 +784,29 @@ class SpecSearch:
                         rel_url = RCSEDv2_FIT_DOWN_URLS[rel_row['survey']].format(ft=cur_ft, f=twodf_field,
                                                                                   c=twodf_conf, s_id=twodf_seq,
                                                                                   e=twodf_ext)
+                        try:
+                            with requests.get(rel_url, stream=True) as responso:
+                                # This opens the data as using the astropy fits interface (using io.BytesIO() to
+                                #  stream it into memory first so that fits.open can access it as an already
+                                #  opened file handler).
+                                with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
 
-                        with requests.get(rel_url, stream=True) as responso:
-                            # This opens the data as using the astropy fits interface (using io.BytesIO() to
-                            #  stream it into memory first so that fits.open can access it as an already
-                            #  opened file handler).
-                            with fits.open(io.BytesIO(gzip.decompress(responso.content))) as cur_sp:
+                                    cur_tab = Table(cur_sp[1].data)
 
-                                cur_tab = Table(cur_sp[1].data)
+                                    if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
+                                        sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
+                                                        'flux': cur_tab['FLUX'].data.flatten(),
+                                                        'flux_err': cur_tab['ERROR'].data.flatten(),
+                                                        'survey': rel_row['survey']}
 
-                                if len(self._spec_plot_data['rcsedv2'][r_spec_id]) == 0:
-                                    sp_plot_data = {'wavelength': cur_tab['WAVE'].data.flatten(),
-                                                    'flux': cur_tab['FLUX'].data.flatten(),
-                                                    'flux_err': cur_tab['ERROR'].data.flatten(),
-                                                    'survey': rel_row['survey']}
+                                        self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
 
-                                    self._spec_plot_data['rcsedv2'][r_spec_id] = sp_plot_data
-
-                                del cur_tab['WAVE']
-                                del cur_tab['FLUX']
-                                del cur_tab['ERROR']
-                                self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                                    del cur_tab['WAVE']
+                                    del cur_tab['FLUX']
+                                    del cur_tab['ERROR']
+                                    self._all_spec_data['rcsedv2'][r_spec_id][cur_ft] = cur_tab
+                        except gzip.BadGzipFile:
+                            pass
 
     def _fetch_desi(self, desi_spec_id):
         if desi_spec_id is None:
