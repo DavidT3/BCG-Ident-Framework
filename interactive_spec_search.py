@@ -30,6 +30,8 @@ from matplotlib.patches import Rectangle, Polygon, Circle, RegularPolygon
 
 from xga.imagetools.misc import pix_deg_scale
 
+from ident_run_setup import load_history, update_history
+
 stretch_dict = {'LOG': LogStretch(), 'SINH': SinhStretch(), 'ASINH': AsinhStretch(), 'SQRT': SqrtStretch(),
                 'SQRD': SquaredStretch(), 'LIN': LinearStretch()}
 
@@ -60,6 +62,20 @@ RCSEDv2_FIT_DOWN_URLS = {'6df': RCSEDv2_BASE + '6dfgs/{ft}/{f_id}/nbursts_6df_{f
                          'gama': RCSEDv2_BASE + 'gama/{ft}/{dk}/{gid}/nbursts_gama_{fgid}_{ft}_{dk}.fits.gz',
                          'fast': RCSEDv2_BASE + 'fast/{ft}/{y}/{fd}/nbursts_fast_{fid}.fits.gz',
                          '2df': RCSEDv2_BASE + '2dfgrs/{ft}/{f}/{c}/nbursts_2df_{s_id}_{e}.fits.gz'}
+
+RCSEDv2_SURVEY_SPEC_IDS = {'6df': {'sixdf_specid': 'spec_id'},
+                           'sdss': {'sdss_mjd': 'obs_mjd', 'sdss_plate': 'obs_plate_id',
+                                    'sdss_fiberid': 'obs_fiber_id'},
+                           'eboss': {'sdss_mjd': 'obs_mjd', 'sdss_plate': 'obs_plate_id',
+                                     'sdss_fiberid': 'obs_fiber_id'},
+                           'hectospec': {'hectospec_date': 'obs_date', 'hectospec_dataset': 'obs_dataset_id',
+                                         'hectospec_spec': 'obs_dataset_spec_id'},
+                           'gama': {'gama_specid': 'obs_spec_id'},
+                           'fast': {'fast_date': 'obs_date', 'fast_dataset': 'obs_dataset_id',
+                                    'fast_spec' :'fast_dataset_spec_id'},
+                           '2df': {'twodf_seqnum': 'obs_sequence_id', 'twodf_ifield': 'obs_field_id',
+                                   'twodf_conf_id': 'obs_iconf', 'twodf_extnum': 'obs_extension_id'}
+                           }
 
 # RADII SPECIFICALLY
 # TODO COULDN'T FIND APERTURE FOR CFA - FAST APERTURE DEPENDS ON SLIT
@@ -98,6 +114,12 @@ class SpecSearch:
         self._primary_data_name = primary_data_name
         self._cluster_name = cluster_name
         self._bcg_cand_coords = bcg_cands
+        # These will help sort the spectra for different BCG candidates
+        self._bcg_cand_identified_spec = {}
+        # The index of the BCG candidate that is currently being matched to spectral observations
+        self._cur_cand_search_ind = 0
+        # Place to hold the assembled and saved spec info for each BCG candidate
+        self._save_spec_info = {}
 
         if im_scale is not None:
             self._all_im_scale = {n: im_scale[n] if n in im_scale else None for n in self._all_im_data.keys()}
@@ -170,7 +192,140 @@ class SpecSearch:
         self._fig.tight_layout(w_pad=0.4)
 
         # ------------------- CUSTOMISING TOOLBAR BUTTONS -------------------
+        # Removes the save figure button from the toolbar
+        new_tt = [t_item for t_item in self._fig.canvas.manager.toolbar.toolitems if t_item[0] != 'Download']
 
+        # ADDING A NEW SAVE BUTTON - uses the same icon, but actually saves the cross-hair position as a
+        #  BCG candidate position, puts down a white circle as a reminder, and clears the cross-hair
+        def save_spec_cand():
+            if len(self._cur_sel_spec) != 0:
+
+                read_hist = load_history()
+                rel_entry = read_hist['bcg_spec_identification'][self._cluster_name]
+                cur_bcg_name = 'BCG' + str(self._cur_cand_search_ind+1)
+
+                # This is a top level key, showing whether we've gone through all the BCGs yet
+                rel_entry['ident_complete'] = self._cur_cand_search_ind == (len(self._cur_sel_spec)-1)
+
+                spec_info = {}
+                spec_cnt = 0
+                for spec_source, sel_specs in self._cur_sel_spec.items():
+                    for sel_spec in sel_specs:
+                        cur_en = {}
+                        rel_full_tab = self._field_spec_search_tables[spec_source]
+                        rel_row = rel_full_tab[rel_full_tab['spec_id'] == sel_spec]
+
+                        cur_en['spec_id'] = sel_spec
+                        if spec_source == 'rcsedv2':
+                            cur_en['rcsedv2_spec_id'] = sel_spec
+                            cur_en['survey'] = rel_row['survey'].data.tolist()[0]
+
+                            rel_ident_cols = RCSEDv2_SURVEY_SPEC_IDS[cur_en['survey']]
+                            cur_en['survey_spec_id'] = {new_col: rel_row[og_col].data.tolist()[0]
+                                                        for og_col, new_col in rel_ident_cols.items()}
+
+                            cur_en['ra'] = rel_row['ra_j2000'].data.tolist()[0]
+                            cur_en['dec'] = rel_row['dec_j2000'].data.tolist()[0]
+                            cur_en['approx_aperture_arcsec'] = float(SURVEY_AP_SIZE[cur_en['survey']].value)
+
+                            cur_en['z'] = rel_row['z'].data.tolist()[0]
+                            cur_en['z_err'] = rel_row['z_err'].data.tolist()[0]
+                            cur_en['z_quality'] = rel_row['z_q'].data.tolist()[0]
+
+                        elif spec_source == 'noirlab-desidr1':
+                            cur_en['desidr1_target_id'] = sel_spec
+                            cur_en['survey'] = "desi_dr1"
+
+                            cur_en['ra'] = rel_row['mean_fiber_ra'].data.tolist()[0]
+                            cur_en['dec'] = rel_row['mean_fiber_dec'].data.tolist()[0]
+
+                            cur_en['approx_aperture_arcsec'] = float(SURVEY_AP_SIZE['desi'].value)
+
+                            cur_en['z'] = rel_row['z'].data.tolist()[0]
+                            cur_en['z_err'] = rel_row['zerr'].data.tolist()[0]
+                            # cur_en['z_quality'] = rel_row['z_q'].data.tolist()[0]
+
+                        spec_name = 'spec'+str(spec_cnt)
+                        spec_info[spec_name] = cur_en
+                        spec_cnt += 1
+
+                self._save_spec_info[cur_bcg_name] = spec_info
+
+                rel_entry[cur_bcg_name] = {'no_spec': False, 'identified_spectra': spec_info}
+                read_hist['bcg_spec_identification'][self._cluster_name] = rel_entry
+                update_history(read_hist)
+
+                self._next_bcg_cand()
+
+        # This is a bit of an unsafe bodge, which I got from a GitHub issue reply, but you can add the function
+        #  object as an attribute after it has been declared
+        self._fig.canvas.manager.toolbar.save_spec_cand = save_spec_cand
+        # Add the new button to the modified set of tool items
+        new_tt.append(("BCG", "Save Identified Spectra", "save", "save_spec_cand"))
+
+        # # ADDING A REFRESH BUTTON - this is in case the user regrets their choice of BCG(s), it will clear previously
+        # #  selected coordinates and remove that information from the BCG candidate sample
+        # def reset_bcg_cand():
+        #     if len(self._cand_ra_dec) != 0:
+        #         prim_ax = self._im_axes[self._primary_data_name]
+        #         for patch in prim_ax.patches:
+        #             if isinstance(patch, Circle):
+        #                 patch.remove()
+        #
+        #         # Have to remove the history entry
+        #         read_hist = load_history()
+        #         rel_entry = {'ident_complete': False}
+        #         read_hist['bcg_identification'][self._cluster_name] = rel_entry
+        #         update_history(read_hist)
+        #
+        #         col_to_remove = ['BCG' + str(b_ind + 1) + "_" + self._primary_data_name + "_" + add_on
+        #                          for b_ind in self._cand_ra_dec for add_on in ['ra', 'dec']]
+        #         col_to_remove += ['no_bcg_cand']
+        #         update_output_sample(self._cluster_name, to_remove=col_to_remove)
+        #
+        #         self._cand_ra_dec = {}
+        #         self._reviewed = False
+        #
+        #     if self._no_bcg:
+        #         col_to_remove = ['no_bcg_cand']
+        #         update_output_sample(self._cluster_name, to_remove=col_to_remove)
+        #
+        #         read_hist = load_history()
+        #         rel_entry = {'ident_complete': False}
+        #         read_hist['bcg_identification'][self._cluster_name] = rel_entry
+        #         update_history(read_hist)
+        #
+        #         self._no_bcg = False
+        #         self._reviewed = False
+        #
+        # # Use the bodge again, adding the reset function
+        # self._fig.canvas.manager.toolbar.reset_bcg_cand = reset_bcg_cand
+        # new_tt.append(("Reset BCG", "Reset BCG Candidates", "refresh", "reset_bcg_cand"))
+        #
+        # # ADDING A NO BCG IDENTIFIED BUTTON - there may be cases where the student can't identify a BCG, or there
+        # #  simply isn't really one there. In that case we don't want to just not record a BCG, as that could be
+        # #  confused with the idea that the cluster hasn't been looked at at all
+        # def no_bcg_cand():
+        #     self._reviewed = True
+        #     self._no_bcg = True
+        #
+        #     read_hist = load_history()
+        #     rel_entry = read_hist['bcg_identification'][self._cluster_name]
+        #     rel_entry['ident_complete'] = True
+        #     rel_entry['no_bcg'] = True
+        #     read_hist['bcg_identification'][self._cluster_name] = rel_entry
+        #     update_history(read_hist)
+        #
+        #     # The same data are also stored in a sample csv file
+        #     out_info = {"no_bcg_cand": True}
+        #     update_output_sample(self._cluster_name, out_info)
+        #
+        # # Use the bodge again, adding the no BCG function
+        # self._fig.canvas.manager.toolbar.no_bcg_cand = no_bcg_cand
+        # new_tt.append(("No BCG", "No BCG Candidates", "exclamation-circle", "no_bcg_cand"))
+
+        # Finally, we add the new set of toolitems back into the toolbar instance
+        self._fig.canvas.manager.toolbar.toolitems = new_tt
         # -------------------------------------------------------------------
 
         # Setting up some visual stuff that is used in multiple places throughout the class
@@ -227,7 +382,7 @@ class SpecSearch:
         #  as that is not meant for editing regions
         self._interacting_on = False
         # The currently selected region is referenced in this attribute
-        self._cur_pick = None
+        self._cur_pick = []
         # The last coordinate ON THE IMAGE that was clicked is stored here. Initial value is set to the centre
         self._last_click = (None, None)
         self._last_radec = (None, None)
@@ -256,7 +411,7 @@ class SpecSearch:
         #  in this means they won't be able to be clicked on
         self._ignore_arts = []
         # Draw the BCG candidates
-        self._draw_bcg_cands()
+        self._draw_cur_bcg_cand()
 
         # ------------------- SETTING UP SPEC ACCESS -------------------
 
@@ -273,7 +428,7 @@ class SpecSearch:
 
         # -------------------------------------------------------------------
 
-        # ------------------- SETTING UP SPEC STORAGE -------------------
+        # --------------------- SETTING UP SPEC STORAGE ---------------------
         self._field_spec_search_tables = {ss: {} for ss in spec_sources}
         self._field_spec_ra_dec = {ss: {} for ss in spec_sources}
 
@@ -284,24 +439,46 @@ class SpecSearch:
 
         # -------------------------------------------------------------------
 
+        # --------------------- SETTING UP SPEC PLOTTING --------------------
         self._smth_std_dev = default_smooth_spec
+        # -------------------------------------------------------------------
+
+        # --------------------- SETTING UP SPEC CHOOSING --------------------
+        self._event_hist = []
+        self._cur_sel_spec = {}
+        # -------------------------------------------------------------------
 
         self._search_rcsed()
         self._search_desidr1()
+        self._update_spec_locs()
 
-    def dynamic_view(self):
-        """
-        The simplest view method of this class, enables the turning on and off of regions.
-        """
-        # Draws on any regions associated with this instance
-        self._draw_regions()
+    def _next_bcg_cand(self):
+        if (len(self._bcg_cand_coords) - 1) == self._cur_cand_search_ind:
+            self._fig.suptitle(self._fig.get_suptitle() + " - SPEC IDENTIFICATION COMPLETE", fontsize=16,
+                               weight="bold", color='darkgoldenrod')
+        else:
+            self._cur_cand_search_ind += 1
 
-        # I THINK that activating this is what turns on automatic refreshing
-        plt.ion()
-        plt.show()
+    def _draw_cur_bcg_cand(self):
+        ax = self._im_axes[self._primary_data_name]
+
+        # The only thing in the artists to be ignored is the previous selected BCG artist
+        if len(self._ignore_arts) != 0:
+            self._ignore_arts[0].remove()
+            self._ignore_arts = []
+
+        cur_wcs = self._all_im_wcs[self._primary_data_name]
+
+        bcg_cand_pos = self._bcg_cand_coords[self._cur_cand_search_ind]
+
+        bcg_pos_pix = cur_wcs.all_world2pix(*bcg_cand_pos, 0)
+
+        bcg_artist = RegularPolygon(bcg_pos_pix, numVertices=5, radius=20, facecolor='None', edgecolor='white',
+                                    linewidth=3)
+        ax.add_artist(bcg_artist)
+        self._ignore_arts.append(bcg_artist)
 
     def _search_rcsed(self):
-
         bottom_left = self._im_bounds[self._primary_data_name][0]
         top_right = self._im_bounds[self._primary_data_name][2]
 
@@ -332,8 +509,6 @@ class SpecSearch:
         search_res = search_res.to_table()
         search_res.rename_column('r2id_spec', 'spec_id')
         self._field_spec_search_tables['rcsedv2'] = search_res
-
-        self._update_spec_locs()
 
     def _search_desidr1(self):
 
@@ -369,8 +544,6 @@ class SpecSearch:
         search_res.rename_column('targetid', 'spec_id')
         search_res['survey'] = 'desi'
         self._field_spec_search_tables['noirlab-desidr1'] = search_res
-
-        self._update_spec_locs()
 
     def _fetch_rcsed_spec_models(self, rcsed_spec_id: Union[List, str] = None,
                                  rcsed_fit_type: Union[List, str] = None):
@@ -711,19 +884,6 @@ class SpecSearch:
 
         ax.legend(repr_art, repr_art_surv, loc="upper left", bbox_to_anchor=(0.01, 0), ncol=leg_cols, borderaxespad=0)
 
-    def _draw_bcg_cands(self):
-        ax = self._im_axes[self._primary_data_name]
-        cur_wcs = self._all_im_wcs[self._primary_data_name]
-
-        for bcg_cand_ident, bcg_cand_pos in self._bcg_cand_coords.items():
-
-            bcg_pos_pix = cur_wcs.all_world2pix(*bcg_cand_pos, 0)
-
-            bcg_artist = RegularPolygon(bcg_pos_pix, numVertices=5, radius=10, facecolor='None', edgecolor='white',
-                                        linewidth=2)
-            ax.add_artist(bcg_artist)
-            self._ignore_arts.append(bcg_artist)
-
     def _replot_data(self):
         """
         This method updates the currently plotted data using the relevant class attributes. Such attributes
@@ -850,64 +1010,94 @@ class SpecSearch:
         if event.artist in self._ignore_arts:
             return
 
-        if self._cur_pick is not None and self._cur_pick != event.artist:
-            # self._cur_pick.set_edgecolor('dodgerblue')
-            self._cur_pick.set_lw(self._reg_line_width)
+        if len(self._event_hist) != 0 and ((event.mouseevent.x != self._event_hist[-1].mouseevent.x) or
+                                           (event.mouseevent.y != self._event_hist[-1].mouseevent.y)):
+            self._event_hist = []
+
+            self._spec_ax.clear()
+            self._spec_ax.tick_params(axis='both', direction='in', which='both', top=True, right=True)
+            self._spec_ax.minorticks_on()
+            self._spec_ax.set_xlabel(r'Wavelength [$\mathrm{\AA}$]', fontsize=14)
+            self._spec_ax.set_ylabel('Flux', fontsize=14)
+
+            self._cur_sel_spec = {}
+
+            for cur_art in self._cur_pick:
+                cur_art.set_lw(self._reg_line_width)
+            self._cur_pick = []
 
         # The _cur_pick attribute references which artist is currently selected, which we can grab from the
         #  artist picker event that triggered this method
-        self._cur_pick = event.artist
+        self._cur_pick.append(event.artist)
         # Makes sure the instance knows a region is selected right now, set to False again when the click ends
         self._select = True
 
-        # event.artist.set_edgecolor('red')
         event.artist.set_lw(self._sel_reg_line_width)
 
         sp_src_id = self._spec_arts[event.artist]
+        rel_id = sp_src_id['spec_id']
         if sp_src_id['spec_source'] == 'rcsedv2':
-            rel_id = sp_src_id['spec_id']
+            rel_row = self._field_spec_search_tables['rcsedv2'][
+                self._field_spec_search_tables['rcsedv2']['spec_id'] == rel_id]
+            rel_z = rel_row['z'].data[0].round(6)
             # self._spec_ax.set_title("{ss} - {s_id}".format(ss=sp_src_id['spec_source'], s_id=rel_id))
             self._fetch_rcsed_spec_models(rel_id)
+            if len(self._spec_plot_data['rcsedv2'][rel_id]) != 0:
+                self._draw_spectrum(sp_src_id['spec_source'], rel_id, z=rel_z)
 
-            self._draw_spectrum(sp_src_id['spec_source'], rel_id)
         elif sp_src_id['spec_source'] == 'noirlab-desidr1':
-            rel_id = sp_src_id['spec_id']
+            rel_row = self._field_spec_search_tables['noirlab-desidr1'][
+                self._field_spec_search_tables['noirlab-desidr1']['spec_id'] == rel_id]
+            rel_z = rel_row['z'].data[0].round(6)
 
             self._fetch_desi(rel_id)
-            self._draw_spectrum(sp_src_id['spec_source'], rel_id)
+            self._draw_spectrum(sp_src_id['spec_source'], rel_id, z=rel_z)
         else:
             pass
 
-    def _draw_spectrum(self, spec_source, spec_id, smooth_stddev: int = None):
+        self._cur_sel_spec.setdefault(sp_src_id['spec_source'], [])
+        self._cur_sel_spec[sp_src_id['spec_source']].append(rel_id)
+        self._event_hist.append(event)
+
+    def _draw_spectrum(self, spec_source, spec_id, smooth_stddev: int = None, z: float = None):
 
         if smooth_stddev is None:
             smooth_stddev = self._smth_std_dev
 
         sp_ax = self._spec_ax
-        sp_ax.clear()
-
-        self._spec_ax.tick_params(axis='both', direction='in', which='both', top=True, right=True)
-        self._spec_ax.minorticks_on()
-        self._spec_ax.set_xlabel(r'Wavelength [$\mathrm{\AA}$]', fontsize=14)
-        self._spec_ax.set_ylabel('Flux', fontsize=14)
 
         rel_data = self._spec_plot_data[spec_source][spec_id]
-        sp_ax.plot(rel_data['wavelength'], rel_data['flux'], color='silver', alpha=0.8)
+
+        lab = "{s} {s_id}".format(s=rel_data['survey'], s_id=spec_id)
+        if z is not None:
+            lab += " z={z}".format(z=z)
+
+        og_dat_line = sp_ax.plot(rel_data['wavelength'], rel_data['flux'], alpha=0.5, label=lab)
+        chos_col = og_dat_line[0].get_color()
 
         if smooth_stddev is not None:
             smoothed = convolve(rel_data['flux'], Gaussian1DKernel(smooth_stddev))
-            sp_ax.plot(rel_data['wavelength'], smoothed, color='black', alpha=1)
 
-        sp_ax.set_title('{ss} {s} - {s_id}'.format(ss=spec_source, s=rel_data['survey'], s_id=spec_id))
+            sp_ax.plot(rel_data['wavelength'], smoothed, color=chos_col, alpha=1)
 
-        # This ensures that the axis limit history that the toolbar keeps, for when you want to reset the view, is
-        #  updated from the autoscaled size of the axis with the current spectrum
-        # sp_ax.update()
+            dat_lims = (np.nanmin(smoothed)*0.7, np.nanmax(smoothed)*1.3)
+
+        else:
+            dat_lims = (np.nanmin(rel_data)*0.7, np.nanmax(rel_data)*1.3)
+
+        cur_lims = sp_ax.get_ylim()
+        fin_lims = (min(dat_lims[0], cur_lims[0]), max(dat_lims[1], cur_lims[1]))
+
+        sp_ax.set_ylim(fin_lims)
+
+        if len(self._cur_pick) < 2:
+            sp_ax.set_title('{ss} {s} - {s_id}'.format(ss=spec_source, s=rel_data['survey'], s_id=spec_id))
+
+        sp_ax.legend()
+
+
         # self._fig.canvas.draw()
-        sp_ax.redraw_in_frame()
-
-        self._fig.canvas.manager.toolbar.push_current()
-
+        # sp_ax.redraw_in_frame()
 
     def _on_release(self, event):
         """
