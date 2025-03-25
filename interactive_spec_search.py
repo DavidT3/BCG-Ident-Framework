@@ -206,7 +206,7 @@ class SpecSearch:
                 cur_bcg_name = 'BCG' + str(self._cur_cand_search_ind+1)
 
                 # This is a top level key, showing whether we've gone through all the BCGs yet
-                rel_entry['ident_complete'] = self._cur_cand_search_ind == (len(self._cur_sel_spec)-1)
+                rel_entry['ident_complete'] = self._cur_cand_search_ind == (len(self._bcg_cand_coords)-1)
 
                 spec_info = {}
                 spec_cnt = 0
@@ -292,7 +292,7 @@ class SpecSearch:
             cur_bcg_name = 'BCG' + str(self._cur_cand_search_ind + 1)
 
             # This is a top level key, showing whether we've gone through all the BCGs yet
-            rel_entry['ident_complete'] = self._cur_cand_search_ind == (len(self._cur_sel_spec) - 1)
+            rel_entry['ident_complete'] = self._cur_cand_search_ind == (len(self._bcg_cand_coords) - 1)
 
             self._save_spec_info[cur_bcg_name] = {}
 
