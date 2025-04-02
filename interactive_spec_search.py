@@ -75,21 +75,35 @@ RCSEDv2_SURVEY_SPEC_IDS = {'6df': {'sixdf_specid': 'spec_id'},
                                     'fast_spec' :'fast_dataset_spec_id'},
                            '2df': {'twodf_seqnum': 'obs_sequence_id', 'twodf_ifield': 'obs_field_id',
                                    'twodf_conf_id': 'obs_iconf', 'twodf_extnum': 'obs_extension_id'},
-                           'cfa': {'cfa_rfn': 'obs_spec_id'}
+                           'cfa': {'cfa_rfn': 'obs_spec_id'},
+                           'uzc': {'uzc_zname': 'obs_spec_id'},
+                           'lamost': {'lamost_obsid': 'obs_spec_id', 'lamost_planid': 'planned_target',
+                                      'lamost_obsdate': 'obs_date', 'lamost_lmjd': 'obs_mjd',
+                                      'lamost_spid': 'spectrograph_id', 'lamost_fiberid': 'obs_fiber_id'},
+                           'lega_c': {'lega_c_spectid': 'obs_spec_id'},
+                           'deep2': {'deep2_objno': 'obs_spec_id'},
+                           'deep3': {'deep3_objno': 'obs_spec_id'},
+                           'wigglez': {'wigglez_specfile': 'obs_spec_id'}
                            }
 
 # RADII SPECIFICALLY
-# TODO COULDN'T FIND APERTURE FOR CFA - FAST APERTURE DEPENDS ON SLIT
+# TODO COULDN'T FIND APERTURE FOR CFA/UZC - FAST APERTURE DEPENDS ON SLIT, lega_c ALSO DEPENDS ON SLIT BUT I THINK
+#  THEY USED 1ARCSEC WIDTH, DEEP2/3 USED CLEVER ADAPTIVE MASK THINGS I THINK (BASICALLY I DON'T KNOW HOW BIG THEY ARE)
 SURVEY_AP_SIZE = {'6df': Quantity(6.7/2, 'arcsec'),
                   'sdss': Quantity(3/2, 'arcsec'),
                   'eboss': Quantity(2/2, 'arcsec'),
                   'lamost': Quantity(3.3/2, 'arcsec'),
                   'cfa': Quantity(10, 'arcsec'),
+                  'uzc': Quantity(10, 'arcsec'),
                   'hectospec': Quantity(1.5/2, 'arcsec'),
                   'gama': Quantity(2/2, 'arcsec'),
                   'fast': Quantity(10, 'arcsec'),
                   '2df': Quantity(2.1/2, 'arcsec'),
-                  'desi': Quantity(1.5/2, 'arcsec')}
+                  'desi': Quantity(1.5/2, 'arcsec'),
+                  'lega_c': Quantity(1/2, 'arcsec'),
+                  'deep2': Quantity(3/2, 'arcsec'),
+                  'deep3': Quantity(3/2, 'arcsec'),
+                  'wigglez': Quantity(1.6/2, 'arcsec')}
 
 SURVEY_COLOURS = {'6df': 'limegreen',
                   'sdss': 'mediumorchid',
