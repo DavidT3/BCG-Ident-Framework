@@ -63,7 +63,7 @@ RCSEDv2_FIT_DOWN_URLS = {'6df': RCSEDv2_BASE + '6dfgs/{ft}/{f_id}/nbursts_6df_{f
                          'fast': RCSEDv2_BASE + 'fast/{ft}/{y}/{fd}/nbursts_fast_{fid}.fits.gz',
                          '2df': RCSEDv2_BASE + '2dfgrs/{ft}/{f}/{c}/nbursts_2df_{s_id}_{e}.fits.gz'}
 
-RCSEDv2_SURVEY_SPEC_IDS = {'6df': {'sixdf_specid': 'spec_id'},
+RCSEDv2_SURVEY_SPEC_IDS = {'6df': {'sixdf_specid': 'obs_spec_id'},
                            'sdss': {'sdss_mjd': 'obs_mjd', 'sdss_plate': 'obs_plate_id',
                                     'sdss_fiberid': 'obs_fiber_id'},
                            'eboss': {'sdss_mjd': 'obs_mjd', 'sdss_plate': 'obs_plate_id',
